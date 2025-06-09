@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎭 Festa di Compleanno - Giochi</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .game-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .game-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        .game-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .game-card h3 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+
+        .game-card p {
+            opacity: 0.8;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background: linear-gradient(45deg, #ee5a52, #ff6b6b);
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+        }
+
+        .btn-secondary:hover {
+            background: linear-gradient(45deg, #44a08d, #4ecdc4);
+            box-shadow: 0 10px 20px rgba(78, 205, 196, 0.3);
+        }
+
+        .classifica-mini {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .classifica-mini h3 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .player-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .player-row:last-child {
+            border-bottom: none;
+        }
+
+        .player-position {
+            font-weight: bold;
+            width: 30px;
+            text-align: center;
+        }
+
+        .player-info {
+            flex: 1;
+            margin-left: 15px;
+        }
+
+        .player-points {
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .registration-form {
+            max-width: 500px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        .game-status {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .game-status h3 {
+            margin-bottom: 15px;
+            color: #ffd700;
+        }
+
+        .personaggi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .personaggio-card {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid transparent;
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .personaggio-card:hover {
+            border-color: #ffd700;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .personaggio-card.selected {
+            border-color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.3);
+        }
+
+        .personaggio-card .emoji {
+            font-size: 2.5em;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .personaggio-card .name {
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .personaggio-card .desc {
+            font-size: 0.7em;
+            opacity: 0.8;
+            line-height: 1.2;
+        }
+
+        .game-card.disabled {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .btn.disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 10px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.success {
+            background: #4caf50;
+        }
+
+        .notification.error {
+            background: #f44336;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎭 Festa di Compleanno in Maschera</h1>
+            <p>Benvenuti ai giochi della festa! Divertitevi e accumulate punti!</p>
+        </div>
+
+        <!-- Pagina di registrazione -->
+        <div id="registration-page" style="display: none;">
+            <div class="registration-form">
+                <h2 style="text-align: center; margin-bottom: 30px;">🎪 Scegli il tuo Personaggio</h2>
+                <form id="registration-form">
+                    <div class="form-group">
+                        <label for="nome">Il tuo nome:</label>
+                        <input type="text" id="nome" name="nome" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="squadra">Scegli la tua squadra:</label>
+                        <select id="squadra" name="squadra" required>
+                            <option value="">-- Seleziona squadra --</option>
+                            <option value="Rossi">🔴 Squadra Rossa</option>
+                            <option value="Blu">🔵 Squadra Blu</option>
+                            <option value="Verdi">🟢 Squadra Verde</option>
+                            <option value="Gialli">🟡 Squadra Gialla</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Scegli il tuo personaggio:</label>
+                        <div class="personaggi-grid" id="personaggi-grid">
+                            <!-- I personaggi verranno caricati dinamicamente -->
+                        </div>
+                        <input type="hidden" id="personaggio_id" name="personaggio_id" required>
+                    </div>
+
+                    <button type="submit" class="btn" style="width: 100%; margin-top: 20px;">
+                        🎭 Inizia a Giocare!
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Dashboard principale -->
+        <div id="main-dashboard">
+            <div class="game-status" id="game-status">
+                <h3>📢 Stato del Gioco</h3>
+                <p id="status-message">In attesa del gamemaster...</p>
+                <div id="active-game-btn" style="display: none;">
+                    <a href="#" class="btn" onclick="joinActiveGame()">Partecipa al Gioco!</a>
+                </div>
+            </div>
+
+            <div class="games-grid">
+                <div class="game-card disabled" id="quiz-card">
+                    <span class="game-icon">🧠</span>
+                    <h3>Quiz Personalizzato</h3>
+                    <p>Metti alla prova la tua conoscenza del festeggiato con domande personalizzate!</p>
+                    <span class="btn disabled">In attesa...</span>
+                </div>
+
+                <div class="game-card disabled" id="indovina-card">
+                    <span class="game-icon">🕵️</span>
+                    <h3>Indovina Chi</h3>
+                    <p>Riconosci gli amici dagli indizi? Scopri chi si nasconde dietro ogni descrizione!</p>
+                    <span class="btn disabled">In attesa...</span>
+                </div>
+
+                <div class="game-card disabled" id="squadre-card">
+                    <span class="game-icon">👥</span>
+                    <h3>Quiz a Squadre</h3>
+                    <p>Collabora con la tua squadra e rispondete insieme alle domande più difficili!</p>
+                    <span class="btn disabled">In attesa...</span>
+                </div>
+
+                <div class="game-card disabled" id="votazione-card">
+                    <span class="game-icon">🎭</span>
+                    <h3>Votazione Costumi</h3>
+                    <p>Vota il costume più bello, originale o divertente della serata!</p>
+                    <span class="btn disabled">In attesa...</span>
+                </div>
+            </div>
+
+            <div class="classifica-mini">
+                <h3>🏆 Classifica Live</h3>
+                <div id="live-leaderboard">
+                    <div class="player-row">
+                        <span class="player-position">1°</span>
+                        <div class="player-info">
+                            <strong>Marco</strong> - Squadra Rossa
+                        </div>
+                        <span class="player-points">150 pt</span>
+                    </div>
+                    <div class="player-row">
+                        <span class="player-position">2°</span>
+                        <div class="player-info">
+                            <strong>Sara</strong> - Squadra Blu
+                        </div>
+                        <span class="player-points">130 pt</span>
+                    </div>
+                    <div class="player-row">
+                        <span class="player-position">3°</span>
+                        <div class="player-info">
+                            <strong>Luca</strong> - Squadra Verde
+                        </div>
+                        <span class="player-points">120 pt</span>
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="#" class="btn btn-secondary" onclick="showFullLeaderboard()">
+                        Classifica Completa
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Funzioni JavaScript per gestire l'interfaccia
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => notification.classList.add('show'), 100);
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => document.body.removeChild(notification), 300);
+            }, 3000);
+        }
+
+        function startGame(gameType) {
+            // Simula l'avvio di un gioco
+            showNotification(`Caricamento ${gameType}...`);
+            setTimeout(() => {
+                window.location.href = `/${gameType}`;
+            }, 1000);
+        }
+
+        function showFullLeaderboard() {
+            window.location.href = '/classifica';
+        }
+
+        // Gestione form di registrazione
+        document.getElementById('registration-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const personaggioId = document.getElementById('personaggio_id').value;
+            if (!personaggioId) {
+                showNotification('Seleziona un personaggio!', 'error');
+                return;
+            }
+
+            const formData = {
+                nome: document.getElementById('nome').value,
+                squadra: document.getElementById('squadra').value,
+                personaggio_id: personaggioId
+            };
+
+            fetch('/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Registrazione completata!');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showNotification(data.error || 'Errore durante la registrazione', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Errore di connessione', 'error');
+            });
+        });
+
+        // Carica personaggi disponibili
+        function loadPersonaggi() {
+            // Simula caricamento personaggi (in realtà dovrebbe venire dal server)
+            const personaggi = [
+                {id: 1, nome: '🏴‍☠️ Capitano Pirata', descrizione: 'Coraggioso comandante dei sette mari'},
+                {id: 2, nome: '👸 Principessa Reale', descrizione: 'Elegante principessa con corona'},
+                {id: 3, nome: '🦸‍♂️ Super Eroe', descrizione: 'Difensore della giustizia'},
+                {id: 4, nome: '🧙‍♀️ Maga Misteriosa', descrizione: 'Potente maga con bacchetta'},
+                {id: 5, nome: '🤠 Cowboy del West', descrizione: 'Coraggioso ranger texano'},
+                {id: 6, nome: '🧛‍♂️ Conte Vampiro', descrizione: 'Misterioso nobile della notte'}
+            ];
+
+            const grid = document.getElementById('personaggi-grid');
+            grid.innerHTML = '';
+
+            personaggi.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'personaggio-card';
+                card.onclick = () => selectPersonaggio(p.id, card);
+
+                const emoji = p.nome.split(' ')[0];
+                const nome = p.nome.substring(p.nome.indexOf(' ') + 1);
+
+                card.innerHTML = `
+                    <span class="emoji">${emoji}</span>
+                    <div class="name">${nome}</div>
+                    <div class="desc">${p.descrizione}</div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        function selectPersonaggio(id, cardElement) {
+            // Rimuovi selezione precedente
+            document.querySelectorAll('.personaggio-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+
+            // Seleziona nuovo personaggio
+            cardElement.classList.add('selected');
+            document.getElementById('personaggio_id').value = id;
+        }
+
+        // Controlla stato del gioco
+        function checkGameStatus() {
+            // Simula controllo stato gioco
+            const gameStatus = 'waiting'; // 'waiting', 'quiz_personalizzato', 'indovina_chi', etc.
+            const message = 'In attesa che il gamemaster avvii il prossimo gioco...';
+
+            document.getElementById('status-message').textContent = message;
+
+            // Abilita/disabilita pulsanti giochi
+            const games = ['quiz', 'indovina', 'squadre', 'votazione'];
+            games.forEach(game => {
+                const card = document.getElementById(game + '-card');
+                if (gameStatus === 'waiting') {
+                    card.classList.add('disabled');
+                } else {
+                    card.classList.remove('disabled');
+                }
+            });
+
+            if (gameStatus !== 'waiting') {
+                document.getElementById('active-game-btn').style.display = 'block';
+            }
+        }
+
+        function joinActiveGame() {
+            // Reindirizza al gioco attivo
+            showNotification('Caricamento gioco attivo...');
+            // window.location.href = '/active-game-url';
+        }
+
+        // Aggiorna la classifica ogni 30 secondi
+        function updateLeaderboard() {
+            fetch('/api/classifica')
+                .then(response => response.json())
+                .then(data => {
+                    const leaderboard = document.getElementById('live-leaderboard');
+                    leaderboard.innerHTML = '';
+
+                    data.forEach((player, index) => {
+                        const row = document.createElement('div');
+                        row.className = 'player-row';
+                        row.innerHTML = `
+                            <span class="player-position">${index + 1}°</span>
+                            <div class="player-info">
+                                <strong>${player.nome}</strong> - ${player.squadra}
+                            </div>
+                            <span class="player-points">${player.punti} pt</span>
+                        `;
+                        leaderboard.appendChild(row);
+                    });
+                })
+                .catch(error => console.log('Errore aggiornamento classifica:', error));
+        }
+
+        // Avvia aggiornamento classifica
+        setInterval(updateLeaderboard, 30000);
+
+        // Controlla se l'utente è già registrato
+        window.onload = function() {
+            // Carica personaggi disponibili
+            loadPersonaggi();
+
+            // Controlla stato registrazione
+            document.getElementById('registration-page').style.display = 'block';
+            document.getElementById('main-dashboard').style.display = 'none';
+
+            // Avvia controllo stato gioco
+            checkGameStatus();
+            setInterval(checkGameStatus, 10000); // Controlla ogni 10 secondi
+        };
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .games-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .game-card {
+                padding: 20px;
+            }
+
+            .personaggi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </script>
+</body>
+</html>
