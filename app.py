@@ -319,42 +319,7 @@ def gamemaster_panel():
 
 
 # API Gamemaster - Ottieni tutti i giocatori
-@app.route('/api/gamemaster/players')
-def get_players():
-    if not session.get('is_gamemaster'):
-        return jsonify({'error': 'Non autorizzato'}), 403
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    try:
-        cursor.execute("""
-            SELECT g.id, g.nome, g.squadra, g.punti_totali, g.foto_profilo, p.nome as personaggio
-            FROM giocatori g
-            JOIN personaggi p ON g.personaggio_id = p.id
-            ORDER BY g.punti_totali DESC
-        """)
-        players = cursor.fetchall()
-
-        # Converti i risultati in una lista di dizionari
-        players_list = []
-        for p in players:
-            players_list.append({
-                'id': p[0],
-                'nome': p[1],
-                'squadra': p[2],
-                'punti': p[3],
-                'foto_profilo': p[4],
-                'personaggio': p[5]
-            })
-
-        return jsonify(players_list)
-
-    except mysql.connector.Error as err:
-        return jsonify({'error': str(err)}), 500
-    finally:
-        cursor.close()
-        conn.close()
 
 
 # API Gamemaster - Gestione domande quiz
@@ -613,6 +578,372 @@ def api_classifica():
         'punti': player[2],
         'foto_profilo': player[3]
     } for player in top_players])
+
+
+# Aggiungi queste nuove route al tuo file app.py
+
+# API Gamemaster - Gestione personaggi
+@app.route('/api/gamemaster/personaggi')
+def get_all_personaggi():
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT p.id, p.nome, p.descrizione, p.disponibile,
+                   g.nome as giocatore_nome, g.id as giocatore_id
+            FROM personaggi p
+            LEFT JOIN giocatori g ON p.id = g.personaggio_id
+            ORDER BY p.nome
+        """)
+        personaggi = cursor.fetchall()
+
+        personaggi_list = []
+        for p in personaggi:
+            personaggi_list.append({
+                'id': p[0],
+                'nome': p[1],
+                'descrizione': p[2],
+                'disponibile': bool(p[3]),
+                'giocatore_nome': p[4],
+                'giocatore_id': p[5]
+            })
+
+        return jsonify(personaggi_list)
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/personaggi/<int:personaggio_id>/toggle', methods=['POST'])
+def toggle_personaggio_availability(personaggio_id):
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    make_available = data.get('disponibile', True)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Se stiamo rendendo non disponibile un personaggio già assegnato
+        if not make_available:
+            cursor.execute("""
+                SELECT g.id, g.nome FROM giocatori g 
+                WHERE g.personaggio_id = %s
+            """, (personaggio_id,))
+            giocatore = cursor.fetchone()
+
+            if giocatore:
+                return jsonify({
+                    'success': False,
+                    'error': f'Personaggio assegnato a {giocatore[1]}. Disconnetti prima il giocatore.'
+                })
+
+        # Aggiorna disponibilità
+        cursor.execute("""
+            UPDATE personaggi SET disponibile = %s WHERE id = %s
+        """, (make_available, personaggio_id))
+
+        conn.commit()
+        return jsonify({'success': True})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/personaggi', methods=['POST'])
+def add_personaggio():
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    nome = data.get('nome', '').strip()
+    descrizione = data.get('descrizione', '').strip()
+
+    if not nome:
+        return jsonify({'error': 'Nome personaggio obbligatorio'})
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            INSERT INTO personaggi (nome, descrizione, disponibile)
+            VALUES (%s, %s, TRUE)
+        """, (nome, descrizione))
+
+        conn.commit()
+        return jsonify({'success': True})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/personaggi/<int:personaggio_id>', methods=['PUT'])
+def update_personaggio(personaggio_id):
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    nome = data.get('nome', '').strip()
+    descrizione = data.get('descrizione', '').strip()
+
+    if not nome:
+        return jsonify({'error': 'Nome personaggio obbligatorio'})
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            UPDATE personaggi 
+            SET nome = %s, descrizione = %s
+            WHERE id = %s
+        """, (nome, descrizione, personaggio_id))
+
+        conn.commit()
+        return jsonify({'success': True})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/personaggi/<int:personaggio_id>', methods=['DELETE'])
+def delete_personaggio(personaggio_id):
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Controlla se il personaggio è assegnato
+        cursor.execute("""
+            SELECT g.nome FROM giocatori g WHERE g.personaggio_id = %s
+        """, (personaggio_id,))
+        giocatore = cursor.fetchone()
+
+        if giocatore:
+            return jsonify({
+                'success': False,
+                'error': f'Impossibile eliminare: personaggio assegnato a {giocatore[0]}'
+            })
+
+        cursor.execute("DELETE FROM personaggi WHERE id = %s", (personaggio_id,))
+        conn.commit()
+        return jsonify({'success': True})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API Gamemaster - Gestione giocatori e disconnessioni
+@app.route('/api/gamemaster/players/<int:player_id>/disconnect', methods=['POST'])
+def disconnect_player(player_id):
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    reason = data.get('reason', 'Disconnesso dal gamemaster')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Ottieni info giocatore
+        cursor.execute("""
+            SELECT nome, personaggio_id FROM giocatori WHERE id = %s
+        """, (player_id,))
+        giocatore = cursor.fetchone()
+
+        if not giocatore:
+            return jsonify({'error': 'Giocatore non trovato'})
+
+        nome_giocatore = giocatore[0]
+        personaggio_id = giocatore[1]
+
+        # Registra la disconnessione per audit
+        cursor.execute("""
+            INSERT INTO disconnessioni (giocatore_id, motivo, timestamp, gamemaster_action)
+            VALUES (%s, %s, NOW(), TRUE)
+        """, (player_id, reason))
+
+        # Libera il personaggio
+        cursor.execute("""
+            UPDATE personaggi SET disponibile = TRUE WHERE id = %s
+        """, (personaggio_id,))
+
+        # Rimuovi il giocatore
+        cursor.execute("DELETE FROM giocatori WHERE id = %s", (player_id,))
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Giocatore {nome_giocatore} disconnesso'
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/players/<int:player_id>/kick-from-game', methods=['POST'])
+def kick_from_game(player_id):
+    """Interrompe la partita di un giocatore senza disconnetterlo completamente"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    reason = data.get('reason', 'Escluso dal gioco corrente')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Registra l'esclusione dal gioco
+        cursor.execute("""
+            INSERT INTO esclusioni_gioco (giocatore_id, gioco_corrente, motivo, timestamp)
+            VALUES (%s, (SELECT gioco_attivo FROM stato_gioco WHERE id = 1), %s, NOW())
+        """, (player_id, reason))
+
+        # Aggiorna il flag di esclusione del giocatore
+        cursor.execute("""
+            UPDATE giocatori SET escluso_da_gioco = TRUE WHERE id = %s
+        """, (player_id,))
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Giocatore escluso dal gioco corrente'
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/players/<int:player_id>/restore', methods=['POST'])
+def restore_player(player_id):
+    """Ripristina un giocatore escluso dal gioco"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            UPDATE giocatori SET escluso_da_gioco = FALSE WHERE id = %s
+        """, (player_id,))
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Giocatore ripristinato'
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per controllo esclusione dal gioco (chiamata dai giocatori)
+@app.route('/api/check-game-exclusion')
+def check_game_exclusion():
+    if 'player_id' not in session:
+        return jsonify({'excluded': False})
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT escluso_da_gioco FROM giocatori WHERE id = %s
+        """, (session['player_id'],))
+        result = cursor.fetchone()
+
+        excluded = result[0] if result else False
+
+        return jsonify({'excluded': bool(excluded)})
+
+    except mysql.connector.Error as err:
+        return jsonify({'excluded': False})
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# Aggiorna la query per i giocatori per includere lo stato di esclusione
+@app.route('/api/gamemaster/players')
+def get_players():
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT g.id, g.nome, g.squadra, g.punti_totali, g.foto_profilo, 
+                   p.nome as personaggio, g.escluso_da_gioco,
+                   DATE_FORMAT(g.ultima_attivita, '%H:%i') as ultima_attivita
+            FROM giocatori g
+            JOIN personaggi p ON g.personaggio_id = p.id
+            ORDER BY g.punti_totali DESC
+        """)
+        players = cursor.fetchall()
+
+        players_list = []
+        for p in players:
+            players_list.append({
+                'id': p[0],
+                'nome': p[1],
+                'squadra': p[2],
+                'punti': p[3],
+                'foto_profilo': p[4],
+                'personaggio': p[5],
+                'escluso_da_gioco': bool(p[6]) if p[6] is not None else False,
+                'ultima_attivita': p[7]
+            })
+
+        return jsonify(players_list)
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
 
 
 if __name__ == '__main__':
