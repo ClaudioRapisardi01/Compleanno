@@ -944,6 +944,703 @@ def get_players():
         conn.close()
 
 
+# Aggiungi queste route al tuo file app.py per il gioco "Indovina Chi"
+
+import random
+from werkzeug.utils import secure_filename
+import uuid
+import os
+
+
+# ========================
+# ROUTE GAMEMASTER - GESTIONE PERSONE E INDIZI
+# ========================
+
+@app.route('/api/gamemaster/indovina-persone')
+def get_indovina_persone():
+    """Ottieni tutte le persone per Indovina Chi"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT ip.id, ip.nome, ip.foto_filename, ip.descrizione, ip.attivo,
+                   COUNT(ii.id) as num_indizi
+            FROM indovina_persone ip
+            LEFT JOIN indovina_indizi ii ON ip.id = ii.persona_id
+            GROUP BY ip.id
+            ORDER BY ip.nome
+        """)
+        persone = cursor.fetchall()
+
+        persone_list = []
+        for p in persone:
+            persone_list.append({
+                'id': p[0],
+                'nome': p[1],
+                'foto_filename': p[2],
+                'descrizione': p[3],
+                'attivo': bool(p[4]),
+                'num_indizi': p[5]
+            })
+
+        return jsonify(persone_list)
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/indovina-persone', methods=['POST'])
+def add_indovina_persona():
+    """Aggiungi una nuova persona per Indovina Chi"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    nome = data.get('nome', '').strip()
+    descrizione = data.get('descrizione', '').strip()
+
+    if not nome:
+        return jsonify({'error': 'Nome obbligatorio'})
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            INSERT INTO indovina_persone (nome, descrizione, attivo)
+            VALUES (%s, %s, TRUE)
+        """, (nome, descrizione))
+
+        persona_id = cursor.lastrowid
+        conn.commit()
+
+        return jsonify({'success': True, 'persona_id': persona_id})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/indovina-persone/<int:persona_id>', methods=['PUT'])
+def update_indovina_persona(persona_id):
+    """Aggiorna una persona"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    nome = data.get('nome', '').strip()
+    descrizione = data.get('descrizione', '').strip()
+    attivo = data.get('attivo', True)
+
+    if not nome:
+        return jsonify({'error': 'Nome obbligatorio'})
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            UPDATE indovina_persone 
+            SET nome = %s, descrizione = %s, attivo = %s
+            WHERE id = %s
+        """, (nome, descrizione, attivo, persona_id))
+
+        conn.commit()
+        return jsonify({'success': True})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/indovina-persone/<int:persona_id>', methods=['DELETE'])
+def delete_indovina_persona(persona_id):
+    """Elimina una persona (cascade elimina anche gli indizi)"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Controlla se ci sono partite attive per questa persona
+        cursor.execute("""
+            SELECT COUNT(*) FROM indovina_partite 
+            WHERE persona_id = %s AND stato = 'attiva'
+        """, (persona_id,))
+
+        if cursor.fetchone()[0] > 0:
+            return jsonify({'error': 'Impossibile eliminare: partita attiva in corso'})
+
+        cursor.execute("DELETE FROM indovina_persone WHERE id = %s", (persona_id,))
+        conn.commit()
+        return jsonify({'success': True})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/indovina-indizi/<int:persona_id>')
+def get_indizi_persona(persona_id):
+    """Ottieni tutti gli indizi di una persona"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, indizio, ordine, punti
+            FROM indovina_indizi
+            WHERE persona_id = %s
+            ORDER BY ordine
+        """, (persona_id,))
+
+        indizi = cursor.fetchall()
+
+        indizi_list = []
+        for i in indizi:
+            indizi_list.append({
+                'id': i[0],
+                'indizio': i[1],
+                'ordine': i[2],
+                'punti': i[3]
+            })
+
+        return jsonify(indizi_list)
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/indovina-indizi', methods=['POST'])
+def add_indizio():
+    """Aggiungi un indizio a una persona"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    persona_id = data.get('persona_id')
+    indizio = data.get('indizio', '').strip()
+    ordine = data.get('ordine', 1)
+    punti = data.get('punti', 0)
+
+    if not all([persona_id, indizio]):
+        return jsonify({'error': 'Tutti i campi sono obbligatori'})
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            INSERT INTO indovina_indizi (persona_id, indizio, ordine, punti)
+            VALUES (%s, %s, %s, %s)
+        """, (persona_id, indizio, ordine, punti))
+
+        conn.commit()
+        return jsonify({'success': True})
+
+    except mysql.connector.IntegrityError:
+        return jsonify({'error': 'Ordine già esistente per questa persona'})
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/indovina-indizi/<int:indizio_id>', methods=['PUT'])
+def update_indizio(indizio_id):
+    """Aggiorna un indizio"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    indizio = data.get('indizio', '').strip()
+    ordine = data.get('ordine', 1)
+    punti = data.get('punti', 0)
+
+    if not indizio:
+        return jsonify({'error': 'Indizio obbligatorio'})
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            UPDATE indovina_indizi 
+            SET indizio = %s, ordine = %s, punti = %s
+            WHERE id = %s
+        """, (indizio, ordine, punti, indizio_id))
+
+        conn.commit()
+        return jsonify({'success': True})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/indovina-indizi/<int:indizio_id>', methods=['DELETE'])
+def delete_indizio(indizio_id):
+    """Elimina un indizio"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("DELETE FROM indovina_indizi WHERE id = %s", (indizio_id,))
+        conn.commit()
+        return jsonify({'success': True})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/upload-foto-indovina', methods=['POST'])
+def upload_foto_indovina():
+    """Upload foto per una persona di Indovina Chi"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'})
+
+    if 'foto' not in request.files:
+        return jsonify({'error': 'Nessun file selezionato'})
+
+    file = request.files['foto']
+    persona_id = request.form.get('persona_id')
+
+    if file.filename == '' or not persona_id:
+        return jsonify({'error': 'File e persona_id obbligatori'})
+
+    if file and allowed_file(file.filename):
+        # Genera nome unico per il file
+        filename = f"indovina_{persona_id}_{str(uuid.uuid4())}.{file.filename.rsplit('.', 1)[1].lower()}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+
+        # Aggiorna il database
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE indovina_persone SET foto_filename = %s WHERE id = %s
+        """, (filename, persona_id))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'filename': filename})
+
+    return jsonify({'error': 'Formato file non supportato'})
+
+
+# ========================
+# ROUTE GAMEMASTER - GESTIONE PARTITE
+# ========================
+
+@app.route('/api/gamemaster/indovina-start', methods=['POST'])
+def start_indovina_partita():
+    """Avvia una nuova partita di Indovina Chi"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    persona_id = data.get('persona_id')
+
+    if not persona_id:
+        # Scegli persona casuale tra quelle attive
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT id FROM indovina_persone 
+            WHERE attivo = TRUE 
+            AND id IN (SELECT persona_id FROM indovina_indizi GROUP BY persona_id HAVING COUNT(*) >= 3)
+            ORDER BY RAND() 
+            LIMIT 1
+        """)
+
+        result = cursor.fetchone()
+        if not result:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'Nessuna persona disponibile con abbastanza indizi'})
+
+        persona_id = result[0]
+        cursor.close()
+        conn.close()
+
+    # Termina eventuali partite attive
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Chiudi partite precedenti
+        cursor.execute("""
+            UPDATE indovina_partite 
+            SET stato = 'completata', tempo_fine = NOW() 
+            WHERE stato = 'attiva'
+        """)
+
+        # Crea nuova partita
+        cursor.execute("""
+            INSERT INTO indovina_partite (persona_id, indizio_corrente, stato)
+            VALUES (%s, 1, 'attiva')
+        """, (persona_id,))
+
+        partita_id = cursor.lastrowid
+        conn.commit()
+
+        return jsonify({'success': True, 'partita_id': partita_id, 'persona_id': persona_id})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/indovina-next-clue', methods=['POST'])
+def next_indovina_clue():
+    """Passa al prossimo indizio"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Trova partita attiva
+        cursor.execute("""
+            SELECT id, persona_id, indizio_corrente 
+            FROM indovina_partite 
+            WHERE stato = 'attiva' 
+            LIMIT 1
+        """)
+
+        partita = cursor.fetchone()
+        if not partita:
+            return jsonify({'error': 'Nessuna partita attiva'})
+
+        partita_id, persona_id, indizio_corrente = partita
+
+        # Controlla se ci sono altri indizi
+        cursor.execute("""
+            SELECT COUNT(*) FROM indovina_indizi 
+            WHERE persona_id = %s AND ordine > %s
+        """, (persona_id, indizio_corrente))
+
+        if cursor.fetchone()[0] == 0:
+            # Nessun indizio successivo, termina partita
+            cursor.execute("""
+                UPDATE indovina_partite 
+                SET stato = 'completata', tempo_fine = NOW() 
+                WHERE id = %s
+            """, (partita_id,))
+            conn.commit()
+            return jsonify({'success': True, 'game_ended': True})
+
+        # Passa al prossimo indizio
+        cursor.execute("""
+            UPDATE indovina_partite 
+            SET indizio_corrente = indizio_corrente + 1 
+            WHERE id = %s
+        """, (partita_id,))
+
+        conn.commit()
+        return jsonify({'success': True, 'next_clue': indizio_corrente + 1})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/indovina-end', methods=['POST'])
+def end_indovina_partita():
+    """Termina la partita corrente"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            UPDATE indovina_partite 
+            SET stato = 'completata', tempo_fine = NOW() 
+            WHERE stato = 'attiva'
+        """)
+
+        conn.commit()
+        return jsonify({'success': True})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# ========================
+# ROUTE GIOCATORI - GAMEPLAY
+# ========================
+
+@app.route('/indovina-chi')
+def indovina_chi_game():
+    """Pagina del gioco Indovina Chi"""
+    if 'player_id' not in session:
+        return redirect(url_for('index'))
+
+    # Verifica che il gioco sia attivo
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT gioco_attivo FROM stato_gioco WHERE id = 1")
+    stato = cursor.fetchone()
+
+    if not stato or stato[0] != 'indovina_chi':
+        cursor.close()
+        conn.close()
+        return redirect(url_for('dashboard'))
+
+    cursor.close()
+    conn.close()
+    return render_template('indovina_chi.html')
+
+
+@app.route('/api/indovina-status')
+def indovina_game_status():
+    """Ottieni lo stato attuale del gioco per i giocatori"""
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'})
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Trova partita attiva
+        cursor.execute("""
+            SELECT ip.id, ip.persona_id, ip.indizio_corrente, ip.stato,
+                   ipe.nome, ipe.foto_filename
+            FROM indovina_partite ip
+            JOIN indovina_persone ipe ON ip.persona_id = ipe.id
+            WHERE ip.stato = 'attiva'
+            LIMIT 1
+        """)
+
+        partita = cursor.fetchone()
+        if not partita:
+            return jsonify({'game_active': False, 'message': 'Nessuna partita attiva'})
+
+        partita_id, persona_id, indizio_corrente, stato, nome_persona, foto = partita
+
+        # Ottieni l'indizio corrente
+        cursor.execute("""
+            SELECT indizio, punti FROM indovina_indizi
+            WHERE persona_id = %s AND ordine = %s
+        """, (persona_id, indizio_corrente))
+
+        indizio_data = cursor.fetchone()
+        if not indizio_data:
+            return jsonify({'game_active': False, 'message': 'Errore nel caricamento indizio'})
+
+        indizio, punti = indizio_data
+
+        # Controlla se il giocatore ha già risposto a questo indizio
+        cursor.execute("""
+            SELECT id, corretta, punti_ottenuti FROM indovina_risposte
+            WHERE partita_id = %s AND giocatore_id = %s AND indizio_numero = %s
+        """, (partita_id, session['player_id'], indizio_corrente))
+
+        risposta_esistente = cursor.fetchone()
+
+        return jsonify({
+            'game_active': True,
+            'partita_id': partita_id,
+            'persona_nome': nome_persona,
+            'persona_foto': foto,
+            'indizio_corrente': indizio_corrente,
+            'indizio_testo': indizio,
+            'punti_disponibili': punti,
+            'ha_risposto': risposta_esistente is not None,
+            'risposta_corretta': risposta_esistente[1] if risposta_esistente else None,
+            'punti_ottenuti': risposta_esistente[2] if risposta_esistente else 0
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/indovina-answer', methods=['POST'])
+def submit_indovina_answer():
+    """Invia una risposta per Indovina Chi"""
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'})
+
+    data = request.get_json()
+    risposta = data.get('risposta', '').strip()
+
+    if not risposta:
+        return jsonify({'error': 'Risposta obbligatoria'})
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Trova partita attiva
+        cursor.execute("""
+            SELECT ip.id, ip.persona_id, ip.indizio_corrente,
+                   ipe.nome
+            FROM indovina_partite ip
+            JOIN indovina_persone ipe ON ip.persona_id = ipe.id
+            WHERE ip.stato = 'attiva'
+            LIMIT 1
+        """)
+
+        partita = cursor.fetchone()
+        if not partita:
+            return jsonify({'error': 'Nessuna partita attiva'})
+
+        partita_id, persona_id, indizio_corrente, nome_corretto = partita
+
+        # Controlla se ha già risposto a questo indizio
+        cursor.execute("""
+            SELECT id FROM indovina_risposte
+            WHERE partita_id = %s AND giocatore_id = %s AND indizio_numero = %s
+        """, (partita_id, session['player_id'], indizio_corrente))
+
+        if cursor.fetchone():
+            return jsonify({'error': 'Hai già risposto a questo indizio'})
+
+        # Ottieni i punti per questo indizio
+        cursor.execute("""
+            SELECT punti FROM indovina_indizi
+            WHERE persona_id = %s AND ordine = %s
+        """, (persona_id, indizio_corrente))
+
+        punti_indizio = cursor.fetchone()
+        if not punti_indizio:
+            return jsonify({'error': 'Errore nel caricamento indizio'})
+
+        punti_disponibili = punti_indizio[0]
+
+        # Controlla se la risposta è corretta (case-insensitive, ignora spazi)
+        risposta_pulita = risposta.lower().strip()
+        nome_pulito = nome_corretto.lower().strip()
+
+        corretta = risposta_pulita == nome_pulito
+        punti_ottenuti = punti_disponibili if corretta else 0
+
+        # Salva la risposta
+        cursor.execute("""
+            INSERT INTO indovina_risposte 
+            (partita_id, giocatore_id, risposta, indizio_numero, corretta, punti_ottenuti)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (partita_id, session['player_id'], risposta, indizio_corrente, corretta, punti_ottenuti))
+
+        # Aggiorna punti giocatore se corretta
+        if corretta:
+            cursor.execute("""
+                UPDATE giocatori 
+                SET punti_totali = punti_totali + %s 
+                WHERE id = %s
+            """, (punti_ottenuti, session['player_id']))
+
+            # Registra partecipazione
+            cursor.execute("""
+                INSERT INTO partecipazioni (giocatore_id, gioco, punti, timestamp)
+                VALUES (%s, 'indovina_chi', %s, NOW())
+            """, (session['player_id'], punti_ottenuti))
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'corretta': corretta,
+            'punti_ottenuti': punti_ottenuti,
+            'nome_corretto': nome_corretto if corretta else None
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/indovina-leaderboard')
+def indovina_leaderboard():
+    """Classifica specifica per Indovina Chi"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT g.nome, g.squadra, g.foto_profilo,
+                   COALESCE(SUM(ir.punti_ottenuti), 0) as punti_indovina,
+                   COUNT(CASE WHEN ir.corretta = TRUE THEN 1 END) as risposte_corrette,
+                   COUNT(ir.id) as risposte_totali
+            FROM giocatori g
+            LEFT JOIN indovina_risposte ir ON g.id = ir.giocatore_id
+            GROUP BY g.id
+            ORDER BY punti_indovina DESC, risposte_corrette DESC
+            LIMIT 10
+        """)
+
+        classifica = cursor.fetchall()
+
+        leaderboard = []
+        for i, (nome, squadra, foto, punti, corrette, totali) in enumerate(classifica):
+            leaderboard.append({
+                'posizione': i + 1,
+                'nome': nome,
+                'squadra': squadra,
+                'foto_profilo': foto,
+                'punti': punti,
+                'risposte_corrette': corrette,
+                'risposte_totali': totali,
+                'percentuale': round((corrette / totali * 100) if totali > 0 else 0, 1)
+            })
+
+        return jsonify(leaderboard)
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
 
 
 if __name__ == '__main__':

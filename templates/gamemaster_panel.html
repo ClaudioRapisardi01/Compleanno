@@ -473,6 +473,168 @@
                 min-width: 120px;
             }
         }
+        /* Stili specifici per Indovina Chi */
+.indovina-people-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.person-card {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 20px;
+    backdrop-filter: blur(10px);
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.person-card.active {
+    border-color: #27ae60;
+}
+
+.person-card.inactive {
+    border-color: #e74c3c;
+    opacity: 0.7;
+}
+
+.person-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+}
+
+.person-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.person-info h4 {
+    margin-bottom: 8px;
+    color: #f39c12;
+}
+
+.person-info p {
+    font-size: 0.9em;
+    opacity: 0.8;
+    line-height: 1.4;
+}
+
+.person-photo-thumb {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5em;
+    overflow: hidden;
+}
+
+.person-photo-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.person-status {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    font-weight: bold;
+    text-align: center;
+    min-width: 80px;
+}
+
+.person-status.active {
+    background: #27ae60;
+    color: white;
+}
+
+.person-status.inactive {
+    background: #e74c3c;
+    color: white;
+}
+
+.person-clues-info {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 15px;
+    margin: 15px 0;
+    text-align: center;
+}
+
+.person-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+}
+
+.person-actions button {
+    flex: 1;
+    min-width: 80px;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.85em;
+    font-weight: bold;
+    color: white;
+}
+
+.current-game-status {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.current-game-status p {
+    margin-bottom: 8px;
+}
+
+.clues-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.clue-item {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.clue-content {
+    flex: 1;
+    margin-right: 15px;
+}
+
+.clue-content strong {
+    color: #f39c12;
+}
+
+.clue-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.clue-actions button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8em;
+    font-weight: bold;
+    color: white;
+}
     </style>
 </head>
 <body>
@@ -488,6 +650,7 @@
             <div class="tab" onclick="showTab('players')">👥 Giocatori</div>
             <div class="tab" onclick="showTab('personaggi')">🎭 Personaggi</div>
             <div class="tab" onclick="showTab('questions')">❓ Gestione Domande</div>
+            <div class="tab" onclick="showTab('indovina')">🕵️ Indovina Chi</div>
             <div class="tab" onclick="showTab('stats')">📊 Statistiche</div>
         </div>
 
@@ -569,6 +732,61 @@
                 </div>
             </div>
         </div>
+
+        <div id="indovina-tab" class="tab-content">
+    <div class="control-grid">
+        <!-- Controllo Partita -->
+        <div class="control-section">
+            <h3>🎮 Controllo Partita</h3>
+            <div class="current-game-status" id="indovina-game-status">
+                <p><strong>Stato:</strong> <span id="indovina-status-text">Nessuna partita attiva</span></p>
+                <p><strong>Persona:</strong> <span id="current-person-name">-</span></p>
+                <p><strong>Indizio:</strong> <span id="current-clue-number">-</span> / <span id="total-clues">-</span></p>
+                <p><strong>Risposte:</strong> <span id="current-responses">0</span></p>
+            </div>
+
+            <div style="margin: 20px 0;">
+                <select id="person-selector" style="width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 10px; border: none; background: rgba(255,255,255,0.9);">
+                    <option value="">Scegli persona casuale</option>
+                </select>
+                <button class="btn btn-success" onclick="startIndovinaGame()" style="width: 100%; margin-bottom: 10px;">
+                    🚀 Avvia Nuova Partita
+                </button>
+            </div>
+
+            <div class="game-controls" id="indovina-controls" style="display: none;">
+                <button class="btn btn-secondary" onclick="nextIndovinaClue()" id="next-clue-btn" style="width: 100%; margin-bottom: 10px;">
+                    ➡️ Prossimo Indizio
+                </button>
+                <button class="btn" onclick="endIndovinaGame()" style="width: 100%;">
+                    🛑 Termina Partita
+                </button>
+            </div>
+        </div>
+
+        <!-- Statistiche Live -->
+        <div class="control-section">
+            <h3>📊 Statistiche Live</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="indovina-total-people">0</div>
+                    <div class="stat-label">Persone Totali</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="indovina-active-players">0</div>
+                    <div class="stat-label">Giocatori Attivi</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="indovina-correct-answers">0</div>
+                    <div class="stat-label">Risposte Corrette</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="indovina-avg-time">0s</div>
+                    <div class="stat-label">Tempo Medio</div>
+                </div>
+            </div>
+        </div>
+    </div>
 
         <!-- Tab Gestione Domande -->
         <div id="questions-tab" class="tab-content">
@@ -676,6 +894,85 @@
             </form>
         </div>
     </div>
+
+        <div id="person-modal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closePersonModal()">&times;</span>
+        <h3 id="person-modal-title">Aggiungi Nuova Persona</h3>
+        <form id="person-form">
+            <input type="hidden" id="person-id">
+
+            <div class="form-group">
+                <label for="person-name">Nome:</label>
+                <input type="text" id="person-name" required>
+            </div>
+
+            <div class="form-group">
+                <label for="person-description">Descrizione:</label>
+                <textarea id="person-description" placeholder="Breve descrizione della persona..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="person-photo">Foto (opzionale):</label>
+                <input type="file" id="person-photo" accept="image/*">
+                <small>Massimo 5MB - jpg, png, gif</small>
+            </div>
+
+            <div style="display: flex; gap: 15px; justify-content: center; margin-top: 30px;">
+                <button type="button" class="btn btn-secondary" onclick="closePersonModal()">Annulla</button>
+                <button type="submit" class="btn btn-success">Salva Persona</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal per gestire indizi -->
+<div id="clues-modal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <span class="close" onclick="closeCluesModal()">&times;</span>
+        <h3 id="clues-modal-title">Gestione Indizi</h3>
+
+        <div style="margin-bottom: 20px;">
+            <button class="btn btn-success" onclick="showAddClueForm()">
+                ➕ Aggiungi Indizio
+            </button>
+        </div>
+
+        <!-- Form per aggiungere indizio -->
+        <div id="add-clue-form" style="display: none; background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+            <h4>Nuovo Indizio</h4>
+            <div class="form-group">
+                <label for="clue-text">Testo Indizio:</label>
+                <textarea id="clue-text" required placeholder="Inserisci l'indizio..."></textarea>
+            </div>
+            <div style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="clue-order">Ordine (1=più difficile):</label>
+                    <select id="clue-order" required>
+                        <option value="1">1 - Più difficile (50 punti)</option>
+                        <option value="2">2 - Difficile (40 punti)</option>
+                        <option value="3">3 - Medio (30 punti)</option>
+                        <option value="4">4 - Facile (20 punti)</option>
+                        <option value="5">5 - Più facile (10 punti)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="clue-points">Punti:</label>
+                    <input type="number" id="clue-points" value="50" min="1" max="100" required>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="hideAddClueForm()">Annulla</button>
+                <button type="button" class="btn btn-success" onclick="saveClue()">Salva Indizio</button>
+            </div>
+        </div>
+
+        <!-- Lista indizi esistenti -->
+        <div class="clues-list" id="clues-list">
+            <!-- Indizi verranno caricati dinamicamente -->
+        </div>
+    </div>
+</div>
 
     <!-- Modal per conferma disconnessione -->
     <div id="disconnect-modal" class="modal">
@@ -1512,6 +1809,519 @@
                 closeDisconnectModal();
             }
         }
+        // Variabili per Indovina Chi
+let indovinaPeople = [];
+let currentIndovinaGame = null;
+let selectedPersonForClues = null;
+
+// Carica dati Indovina Chi
+function loadIndovinaData() {
+    loadIndovinaPeople();
+    loadIndovinaGameStatus();
+    updateIndovinaStats();
+}
+
+// Carica persone
+function loadIndovinaPeople() {
+    fetch('/api/gamemaster/indovina-persone')
+        .then(response => response.json())
+        .then(data => {
+            indovinaPeople = data;
+            displayIndovinaPeople(data);
+            updatePersonSelector(data);
+        })
+        .catch(error => {
+            console.error('Errore caricamento persone:', error);
+            showNotification('Errore caricamento persone', 'error');
+        });
+}
+
+// Mostra persone
+function displayIndovinaPeople(people) {
+    const grid = document.getElementById('indovina-people-grid');
+    grid.innerHTML = '';
+
+    if (people.length === 0) {
+        grid.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                <h3>👥 Nessuna persona disponibile</h3>
+                <p>Aggiungi la prima persona per iniziare!</p>
+            </div>
+        `;
+        return;
+    }
+
+    people.forEach(person => {
+        const card = document.createElement('div');
+        card.className = 'person-card';
+
+        if (person.attivo) {
+            card.classList.add('active');
+        } else {
+            card.classList.add('inactive');
+        }
+
+        const photoHtml = person.foto_filename ?
+            `<img src="/static/uploads/${person.foto_filename}" alt="${person.nome}">` :
+            `<span>${person.nome.charAt(0).toUpperCase()}</span>`;
+
+        const statusClass = person.attivo ? 'active' : 'inactive';
+        const statusText = person.attivo ? 'Attiva' : 'Disattivata';
+
+        card.innerHTML = `
+            <div class="person-header">
+                <div class="person-info">
+                    <h4>${person.nome}</h4>
+                    <p>${person.descrizione || 'Nessuna descrizione'}</p>
+                </div>
+                <div class="person-photo-thumb">${photoHtml}</div>
+            </div>
+
+            <div class="person-status ${statusClass}">${statusText}</div>
+
+            <div class="person-clues-info">
+                <strong>${person.num_indizi}</strong> indizi configurati
+                ${person.num_indizi < 3 ? '<br><small style="color: #e74c3c;">⚠️ Servono almeno 3 indizi</small>' : ''}
+            </div>
+
+            <div class="person-actions">
+                <button class="btn btn-secondary" onclick="editPerson(${person.id})">
+                    ✏️ Modifica
+                </button>
+                <button class="btn btn-secondary" onclick="manageClues(${person.id}, '${person.nome}')">
+                    💡 Indizi (${person.num_indizi})
+                </button>
+                <button class="btn ${person.attivo ? 'btn-disconnect' : 'btn-success'}"
+                        onclick="togglePersonStatus(${person.id}, ${!person.attivo})">
+                    ${person.attivo ? '🔒 Disattiva' : '🔓 Attiva'}
+                </button>
+                <button class="btn" onclick="deletePerson(${person.id})"
+                        style="background: #e74c3c;">
+                    🗑️ Elimina
+                </button>
+            </div>
+        `;
+
+        grid.appendChild(card);
+    });
+}
+
+// Aggiorna selector persone
+function updatePersonSelector(people) {
+    const selector = document.getElementById('person-selector');
+    selector.innerHTML = '<option value="">Scegli persona casuale</option>';
+
+    people.filter(p => p.attivo && p.num_indizi >= 3).forEach(person => {
+        const option = document.createElement('option');
+        option.value = person.id;
+        option.textContent = `${person.nome} (${person.num_indizi} indizi)`;
+        selector.appendChild(option);
+    });
+}
+
+// Gestione partite
+function startIndovinaGame() {
+    const personId = document.getElementById('person-selector').value || null;
+
+    fetch('/api/gamemaster/indovina-start', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ persona_id: personId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Partita di Indovina Chi avviata!');
+            loadIndovinaGameStatus();
+        } else {
+            showNotification(data.error || 'Errore avvio partita', 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Errore di connessione', 'error');
+    });
+}
+
+function nextIndovinaClue() {
+    fetch('/api/gamemaster/indovina-next-clue', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (data.game_ended) {
+                showNotification('Partita terminata - tutti gli indizi esauriti');
+            } else {
+                showNotification(`Passato all'indizio #${data.next_clue}`);
+            }
+            loadIndovinaGameStatus();
+        } else {
+            showNotification(data.error || 'Errore', 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Errore di connessione', 'error');
+    });
+}
+
+function endIndovinaGame() {
+    if (!confirm('Sei sicuro di voler terminare la partita corrente?')) return;
+
+    fetch('/api/gamemaster/indovina-end', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Partita terminata');
+            loadIndovinaGameStatus();
+        } else {
+            showNotification(data.error || 'Errore', 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Errore di connessione', 'error');
+    });
+}
+
+// Carica stato gioco
+function loadIndovinaGameStatus() {
+    fetch('/api/indovina-status')
+        .then(response => response.json())
+        .then(data => {
+            updateIndovinaGameDisplay(data);
+        })
+        .catch(error => {
+            console.error('Errore stato gioco:', error);
+        });
+}
+
+function updateIndovinaGameDisplay(data) {
+    const statusText = document.getElementById('indovina-status-text');
+    const personName = document.getElementById('current-person-name');
+    const clueNumber = document.getElementById('current-clue-number');
+    const totalClues = document.getElementById('total-clues');
+    const responses = document.getElementById('current-responses');
+    const controls = document.getElementById('indovina-controls');
+
+    if (data.game_active) {
+        statusText.textContent = 'Partita attiva';
+        personName.textContent = data.persona_nome;
+        clueNumber.textContent = data.indizio_corrente;
+        totalClues.textContent = '5'; // Assumiamo max 5 indizi
+        responses.textContent = '0'; // Da implementare
+        controls.style.display = 'block';
+
+        // Disabilita prossimo indizio se ultimo
+        const nextBtn = document.getElementById('next-clue-btn');
+        nextBtn.disabled = data.indizio_corrente >= 5;
+    } else {
+        statusText.textContent = 'Nessuna partita attiva';
+        personName.textContent = '-';
+        clueNumber.textContent = '-';
+        totalClues.textContent = '-';
+        responses.textContent = '0';
+        controls.style.display = 'none';
+    }
+}
+
+// Gestione persone
+function showAddPersonModal() {
+    document.getElementById('person-modal-title').textContent = 'Aggiungi Nuova Persona';
+    document.getElementById('person-form').reset();
+    document.getElementById('person-id').value = '';
+    document.getElementById('person-modal').style.display = 'block';
+}
+
+function editPerson(id) {
+    const person = indovinaPeople.find(p => p.id === id);
+    if (!person) return;
+
+    document.getElementById('person-modal-title').textContent = 'Modifica Persona';
+    document.getElementById('person-id').value = person.id;
+    document.getElementById('person-name').value = person.nome;
+    document.getElementById('person-description').value = person.descrizione || '';
+    document.getElementById('person-modal').style.display = 'block';
+}
+
+function closePersonModal() {
+    document.getElementById('person-modal').style.display = 'none';
+}
+
+function togglePersonStatus(id, makeActive) {
+    fetch(`/api/gamemaster/indovina-persone/${id}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            nome: indovinaPeople.find(p => p.id === id).nome,
+            descrizione: indovinaPeople.find(p => p.id === id).descrizione,
+            attivo: makeActive
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(makeActive ? 'Persona attivata' : 'Persona disattivata');
+            loadIndovinaPeople();
+        } else {
+            showNotification(data.error || 'Errore', 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Errore di connessione', 'error');
+    });
+}
+
+function deletePerson(id) {
+    const person = indovinaPeople.find(p => p.id === id);
+    if (!person) return;
+
+    if (!confirm(`Sei sicuro di voler eliminare "${person.nome}"? Tutti gli indizi verranno eliminati.`)) return;
+
+    fetch(`/api/gamemaster/indovina-persone/${id}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Persona eliminata');
+            loadIndovinaPeople();
+        } else {
+            showNotification(data.error || 'Errore eliminazione', 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Errore di connessione', 'error');
+    });
+}
+
+// Salvataggio persona
+document.getElementById('person-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const personId = document.getElementById('person-id').value;
+    const isEdit = personId !== '';
+
+    const formData = new FormData();
+    const photoFile = document.getElementById('person-photo').files[0];
+
+    // Prima salva i dati della persona
+    const personData = {
+        nome: document.getElementById('person-name').value,
+        descrizione: document.getElementById('person-description').value,
+        attivo: true
+    };
+
+    const url = isEdit ?
+        `/api/gamemaster/indovina-persone/${personId}` :
+        '/api/gamemaster/indovina-persone';
+    const method = isEdit ? 'PUT' : 'POST';
+
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(personData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const savedPersonId = isEdit ? personId : data.persona_id;
+
+            // Se c'è una foto, caricala separatamente
+            if (photoFile) {
+                const photoFormData = new FormData();
+                photoFormData.append('foto', photoFile);
+                photoFormData.append('persona_id', savedPersonId);
+
+                return fetch('/upload-foto-indovina', {
+                    method: 'POST',
+                    body: photoFormData
+                });
+            } else {
+                return Promise.resolve({ ok: true });
+            }
+        } else {
+            throw new Error(data.error || 'Errore salvataggio persona');
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            showNotification(isEdit ? 'Persona modificata' : 'Persona aggiunta');
+            closePersonModal();
+            loadIndovinaPeople();
+        } else {
+            return response.json().then(data => {
+                throw new Error(data.error || 'Errore caricamento foto');
+            });
+        }
+    })
+    .catch(error => {
+        showNotification(error.message || 'Errore salvataggio', 'error');
+    });
+});
+
+// Gestione indizi
+function manageClues(personId, personName) {
+    selectedPersonForClues = personId;
+    document.getElementById('clues-modal-title').textContent = `Indizi per ${personName}`;
+    document.getElementById('clues-modal').style.display = 'block';
+    loadClues(personId);
+}
+
+function closeCluesModal() {
+    document.getElementById('clues-modal').style.display = 'none';
+    hideAddClueForm();
+}
+
+function showAddClueForm() {
+    document.getElementById('add-clue-form').style.display = 'block';
+
+    // Auto-imposta ordine successivo
+    fetch(`/api/gamemaster/indovina-indizi/${selectedPersonForClues}`)
+        .then(response => response.json())
+        .then(data => {
+            const nextOrder = data.length + 1;
+            if (nextOrder <= 5) {
+                document.getElementById('clue-order').value = nextOrder;
+                const points = [50, 40, 30, 20, 10];
+                document.getElementById('clue-points').value = points[nextOrder - 1] || 10;
+            }
+        });
+}
+
+function hideAddClueForm() {
+    document.getElementById('add-clue-form').style.display = 'none';
+    document.getElementById('clue-text').value = '';
+}
+
+function loadClues(personId) {
+    fetch(`/api/gamemaster/indovina-indizi/${personId}`)
+        .then(response => response.json())
+        .then(data => {
+            displayClues(data);
+        })
+        .catch(error => {
+            console.error('Errore caricamento indizi:', error);
+        });
+}
+
+function displayClues(clues) {
+    const list = document.getElementById('clues-list');
+    list.innerHTML = '';
+
+    if (clues.length === 0) {
+        list.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <h3>💡 Nessun indizio configurato</h3>
+                <p>Aggiungi il primo indizio per questa persona!</p>
+            </div>
+        `;
+        return;
+    }
+
+    clues.forEach(clue => {
+        const item = document.createElement('div');
+        item.className = 'clue-item';
+
+        item.innerHTML = `
+            <div class="clue-content">
+                <strong>Indizio #${clue.ordine}</strong> (${clue.punti} punti)<br>
+                ${clue.indizio}
+            </div>
+            <div class="clue-actions">
+                <button class="btn btn-secondary" onclick="editClue(${clue.id}, '${clue.indizio}', ${clue.ordine}, ${clue.punti})">
+                    Modifica
+                </button>
+                <button class="btn" onclick="deleteClue(${clue.id})" style="background: #e74c3c;">
+                    Elimina
+                </button>
+            </div>
+        `;
+
+        list.appendChild(item);
+    });
+}
+
+function saveClue() {
+    const clueData = {
+        persona_id: selectedPersonForClues,
+        indizio: document.getElementById('clue-text').value,
+        ordine: parseInt(document.getElementById('clue-order').value),
+        punti: parseInt(document.getElementById('clue-points').value)
+    };
+
+    fetch('/api/gamemaster/indovina-indizi', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(clueData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Indizio aggiunto');
+            hideAddClueForm();
+            loadClues(selectedPersonForClues);
+            loadIndovinaPeople(); // Aggiorna contatore indizi
+        } else {
+            showNotification(data.error || 'Errore salvataggio indizio', 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Errore di connessione', 'error');
+    });
+}
+
+function deleteClue(clueId) {
+    if (!confirm('Sei sicuro di voler eliminare questo indizio?')) return;
+
+    fetch(`/api/gamemaster/indovina-indizi/${clueId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Indizio eliminato');
+            loadClues(selectedPersonForClues);
+            loadIndovinaPeople();
+        }
+    })
+    .catch(error => {
+        showNotification('Errore eliminazione indizio', 'error');
+    });
+}
+
+function updateIndovinaStats() {
+    document.getElementById('indovina-total-people').textContent = indovinaPeople.length;
+    document.getElementById('indovina-active-players').textContent = Math.floor(Math.random() * 10); // Placeholder
+    document.getElementById('indovina-correct-answers').textContent = Math.floor(Math.random() * 50); // Placeholder
+    document.getElementById('indovina-avg-time').textContent = Math.floor(Math.random() * 30) + 's'; // Placeholder
+}
+
+// Aggiungi al caricamento principale
+if (typeof loadGamemasterData === 'function') {
+    const originalLoad = loadGamemasterData;
+    loadGamemasterData = function() {
+        originalLoad();
+        loadIndovinaData();
+    };
+}
+
+// Modifica showTab per includere indovina
+const originalShowTab = window.showTab;
+window.showTab = function(tabName) {
+    originalShowTab(tabName);
+    if (tabName === 'indovina') {
+        loadIndovinaData();
+    }
+};
     </script>
 </body>
 </html>
