@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 Pannello Gamemaster</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 5px;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            margin: 0 5px;
+        }
+
+        .tab.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: #ffd700;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .control-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-section h3 {
+            margin-bottom: 20px;
+            color: #ffd700;
+            text-align: center;
+        }
+
+        .game-btn {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+
+        .game-btn:hover {
+            background: linear-gradient(45deg, #2980b9, #3498db);
+            transform: scale(1.02);
+        }
+
+        .game-btn.active {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: linear-gradient(45deg, #ee5a52, #ff6b6b);
+            transform: scale(1.05);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+        }
+
+        .players-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .player-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .player-photo {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            background: rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            overflow: hidden;
+        }
+
+        .player-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .questions-list {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .question-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .question-text {
+            flex: 1;
+            margin-right: 15px;
+        }
+
+        .question-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .question-actions button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 20px;
+            width: 80%;
+            max-width: 600px;
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .current-status {
+            background: rgba(76, 175, 80, 0.2);
+            border: 2px solid #4caf50;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .current-status.waiting {
+            background: rgba(255, 193, 7, 0.2);
+            border-color: #ffc107;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 10px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .control-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tabs {
+                flex-wrap: wrap;
+            }
+
+            .tab {
+                flex: 1;
+                min-width: 120px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 Pannello di Controllo Gamemaster</h1>
+            <p>Gestisci la festa in tempo reale</p>
+        </div>
+
+        <!-- Tabs di navigazione -->
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('control')">🎯 Controllo Giochi</div>
+            <div class="tab" onclick="showTab('players')">👥 Giocatori</div>
+            <div class="tab" onclick="showTab('questions')">❓ Gestione Domande</div>
+            <div class="tab" onclick="showTab('stats')">📊 Statistiche</div>
+        </div>
+
+        <!-- Tab Controllo Giochi -->
+        <div id="control-tab" class="tab-content active">
+            <div class="current-status waiting" id="current-status">
+                <h3>📢 Stato Attuale</h3>
+                <p id="status-text">Nessun gioco attivo - In attesa</p>
+                <p id="active-players">0 giocatori connessi</p>
+            </div>
+
+            <div class="control-grid">
+                <div class="control-section">
+                    <h3>🎯 Avvia Giochi</h3>
+                    <div class="game-controls">
+                        <button class="game-btn" onclick="startGame('quiz_personalizzato')">
+                            <span>🧠 Quiz Personalizzato</span>
+                            <span>●</span>
+                        </button>
+                        <button class="game-btn" onclick="startGame('indovina_chi')">
+                            <span>🕵️ Indovina Chi</span>
+                            <span>●</span>
+                        </button>
+                        <button class="game-btn" onclick="startGame('quiz_squadre')">
+                            <span>👥 Quiz a Squadre</span>
+                            <span>●</span>
+                        </button>
+                        <button class="game-btn" onclick="startGame('votazione_costumi')">
+                            <span>🎭 Votazione Costumi</span>
+                            <span>●</span>
+                        </button>
+                        <input type="text" id="custom-message" placeholder="Messaggio personalizzato (opzionale)"
+                               style="width: 100%; padding: 10px; margin: 10px 0; border: none; border-radius: 10px; background: rgba(255,255,255,0.9); color: #333;">
+                        <button class="btn" onclick="stopGame()" style="width: 100%;">
+                            🛑 Ferma Gioco Attuale
+                        </button>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>📊 Statistiche Live</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number" id="total-players">0</div>
+                            <div class="stat-label">Giocatori Totali</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="active-participants">0</div>
+                            <div class="stat-label">Nel Gioco Attuale</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="completed-games">0</div>
+                            <div class="stat-label">Giochi Completati</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Giocatori -->
+        <div id="players-tab" class="tab-content">
+            <div class="control-section">
+                <h3>👥 Giocatori Registrati</h3>
+                <div class="players-grid" id="players-grid">
+                    <!-- I giocatori verranno caricati dinamicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Gestione Domande -->
+        <div id="questions-tab" class="tab-content">
+            <div class="control-section">
+                <h3>❓ Gestione Domande Quiz</h3>
+                <button class="btn btn-success" onclick="showAddQuestionModal()">
+                    ➕ Aggiungi Nuova Domanda
+                </button>
+                <div class="questions-list" id="questions-list">
+                    <!-- Le domande verranno caricate dinamicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Statistiche -->
+        <div id="stats-tab" class="tab-content">
+            <div class="control-section">
+                <h3>📊 Statistiche Dettagliate</h3>
+                <div id="detailed-stats">
+                    <!-- Statistiche dettagliate verranno caricate qui -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal per aggiungere/modificare domande -->
+    <div id="question-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeQuestionModal()">&times;</span>
+            <h3 id="modal-title">Aggiungi Nuova Domanda</h3>
+            <form id="question-form">
+                <input type="hidden" id="question-id">
+
+                <div class="form-group">
+                    <label for="question-text">Domanda:</label>
+                    <textarea id="question-text" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="option-a">Opzione A:</label>
+                    <input type="text" id="option-a" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="option-b">Opzione B:</label>
+                    <input type="text" id="option-b" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="option-c">Opzione C:</label>
+                    <input type="text" id="option-c" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="option-d">Opzione D:</label>
+                    <input type="text" id="option-d" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="correct-answer">Risposta Corretta:</label>
+                    <select id="correct-answer" required>
+                        <option value="">Seleziona...</option>
+                        <option value="a">A</option>
+                        <option value="b">B</option>
+                        <option value="c">C</option>
+                        <option value="d">D</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="category">Categoria:</label>
+                    <input type="text" id="category" value="generale">
+                </div>
+
+                <div style="display: flex; gap: 15px; justify-content: center; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeQuestionModal()">Annulla</button>
+                    <button type="submit" class="btn btn-success">Salva Domanda</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentGame = null;
+        let playersData = [];
+        let questionsData = [];
+
+        // Gestione tabs
+        function showTab(tabName) {
+            // Nasconde tutti i contenuti
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Rimuove classe attiva da tutti i tab
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Mostra il tab selezionato
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+
+            // Carica dati specifici per il tab
+            if (tabName === 'players') {
+                loadPlayers();
+            } else if (tabName === 'questions') {
+                loadQuestions();
+            } else if (tabName === 'stats') {
+                loadDetailedStats();
+            }
+        }
+
+        // Gestione giochi
+        function startGame(gameType) {
+            const customMessage = document.getElementById('custom-message').value;
+            const message = customMessage || getDefaultMessage(gameType);
+
+            fetch('/gamemaster/set-game', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    gioco: gameType,
+                    messaggio: message
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentGame = gameType;
+                    updateGameStatus(gameType, message);
+                    updateButtonStates();
+                    showNotification(`${getGameName(gameType)} avviato!`);
+                    document.getElementById('custom-message').value = '';
+                }
+            })
+            .catch(error => {
+                showNotification('Errore durante l\'avvio del gioco', 'error');
+            });
+        }
+
+        function stopGame() {
+            fetch('/gamemaster/stop-game', {
+                method: 'POST',
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentGame = null;
+                    updateGameStatus(null, 'In attesa del prossimo gioco...');
+                    updateButtonStates();
+                    showNotification('Gioco fermato');
+                }
+            })
+            .catch(error => {
+                showNotification('Errore', 'error');
+            });
+        }
+
+        function updateGameStatus(game, message) {
+            const statusElement = document.getElementById('current-status');
+            const statusText = document.getElementById('status-text');
+
+            if (game) {
+                statusElement.className = 'current-status';
+                statusText.textContent = `${getGameName(game)} - ${message}`;
+            } else {
+                statusElement.className = 'current-status waiting';
+                statusText.textContent = message;
+            }
+        }
+
+        function updateButtonStates() {
+            const buttons = document.querySelectorAll('.game-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            if (currentGame) {
+                const activeBtn = document.querySelector(`[onclick*="${currentGame}"]`);
+                if (activeBtn) {
+                    activeBtn.classList.add('active');
+                }
+            }
+        }
+
+        // Caricamento giocatori con gestione errori migliorata
+        function loadPlayers() {
+            fetch('/api/gamemaster/players')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    if (!Array.isArray(data)) {
+                        throw new Error('Formato dati non valido ricevuto dal server');
+                    }
+                    playersData = data;
+                    displayPlayers(data);
+                })
+                .catch(error => {
+                    console.error('Errore caricamento giocatori:', error);
+                    showNotification(`Errore caricamento giocatori: ${error.message}`, 'error');
+                    // Mostra messaggio di fallback
+                    const grid = document.getElementById('players-grid');
+                    grid.innerHTML = `
+                        <div style="grid-column: 1/-1; text-align: center; padding: 20px;">
+                            <p>⚠️ Errore nel caricamento dei giocatori</p>
+                            <button class="btn" onclick="loadPlayers()" style="margin-top: 10px;">
+                                🔄 Riprova
+                            </button>
+                        </div>
+                    `;
+                });
+        }
+
+        function displayPlayers(players) {
+            const grid = document.getElementById('players-grid');
+
+            if (!Array.isArray(players)) {
+                console.error('displayPlayers: players non è un array', players);
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center;">Errore nel formato dati</div>';
+                return;
+            }
+
+            grid.innerHTML = '';
+
+            if (players.length === 0) {
+                grid.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                        <h3>👥 Nessun giocatore registrato</h3>
+                        <p>I giocatori appariranno qui una volta registrati</p>
+                    </div>
+                `;
+                return;
+            }
+
+            players.forEach(player => {
+                const card = document.createElement('div');
+                card.className = 'player-card';
+
+                const photoUrl = player.foto_profilo ?
+                    `/static/uploads/${player.foto_profilo}` :
+                    null;
+
+                card.innerHTML = `
+                    <div class="player-photo">
+                        ${photoUrl ?
+                            `<img src="${photoUrl}" alt="${player.nome}" onerror="this.style.display='none'; this.nextSibling.style.display='flex';">
+                             <span style="display: none;">${player.nome.charAt(0)}</span>` :
+                            `<span>${player.nome.charAt(0)}</span>`
+                        }
+                    </div>
+                    <h4>${player.nome}</h4>
+                    <p><strong>${player.personaggio}</strong></p>
+                    <p>Squadra: ${player.squadra}</p>
+                    <p><strong>${player.punti} punti</strong></p>
+                `;
+
+                grid.appendChild(card);
+            });
+
+            // Aggiorna statistiche
+            document.getElementById('total-players').textContent = players.length;
+        }
+
+        // Gestione domande con migliore error handling
+        function loadQuestions() {
+            fetch('/api/gamemaster/quiz-questions')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    if (!Array.isArray(data)) {
+                        throw new Error('Formato dati non valido ricevuto dal server');
+                    }
+                    questionsData = data;
+                    displayQuestions(data);
+                })
+                .catch(error => {
+                    console.error('Errore caricamento domande:', error);
+                    showNotification(`Errore caricamento domande: ${error.message}`, 'error');
+                    // Mostra messaggio di fallback
+                    const list = document.getElementById('questions-list');
+                    list.innerHTML = `
+                        <div style="text-align: center; padding: 20px;">
+                            <p>⚠️ Errore nel caricamento delle domande</p>
+                            <button class="btn" onclick="loadQuestions()" style="margin-top: 10px;">
+                                🔄 Riprova
+                            </button>
+                        </div>
+                    `;
+                });
+        }
+
+        function displayQuestions(questions) {
+            const list = document.getElementById('questions-list');
+
+            if (!Array.isArray(questions)) {
+                console.error('displayQuestions: questions non è un array', questions);
+                list.innerHTML = '<div style="text-align: center;">Errore nel formato dati</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+
+            if (questions.length === 0) {
+                list.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <h3>❓ Nessuna domanda disponibile</h3>
+                        <p>Aggiungi la prima domanda per il quiz!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            questions.forEach(question => {
+                const item = document.createElement('div');
+                item.className = 'question-item';
+
+                item.innerHTML = `
+                    <div class="question-text">
+                        <strong>${question.domanda}</strong><br>
+                        <small>Categoria: ${question.categoria || 'generale'} | Risposta: ${question.risposta_corretta.toUpperCase()}</small>
+                    </div>
+                    <div class="question-actions">
+                        <button class="btn btn-secondary" onclick="editQuestion(${question.id})">Modifica</button>
+                        <button class="btn" onclick="deleteQuestion(${question.id})">Elimina</button>
+                    </div>
+                `;
+
+                list.appendChild(item);
+            });
+        }
+
+        // Modal gestione domande
+        function showAddQuestionModal() {
+            document.getElementById('modal-title').textContent = 'Aggiungi Nuova Domanda';
+            document.getElementById('question-form').reset();
+            document.getElementById('question-id').value = '';
+            document.getElementById('question-modal').style.display = 'block';
+        }
+
+        function editQuestion(id) {
+            const question = questionsData.find(q => q.id === id);
+            if (!question) return;
+
+            document.getElementById('modal-title').textContent = 'Modifica Domanda';
+            document.getElementById('question-id').value = question.id;
+            document.getElementById('question-text').value = question.domanda;
+            document.getElementById('option-a').value = question.opzione_a;
+            document.getElementById('option-b').value = question.opzione_b;
+            document.getElementById('option-c').value = question.opzione_c;
+            document.getElementById('option-d').value = question.opzione_d;
+            document.getElementById('correct-answer').value = question.risposta_corretta;
+            document.getElementById('category').value = question.categoria;
+            document.getElementById('question-modal').style.display = 'block';
+        }
+
+        function closeQuestionModal() {
+            document.getElementById('question-modal').style.display = 'none';
+        }
+
+        function deleteQuestion(id) {
+            if (!confirm('Sei sicuro di voler eliminare questa domanda?')) return;
+
+            fetch(`/api/gamemaster/quiz-questions/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Domanda eliminata');
+                    loadQuestions();
+                }
+            })
+            .catch(error => {
+                showNotification('Errore eliminazione domanda', 'error');
+            });
+        }
+
+        // Salvataggio domanda
+        document.getElementById('question-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const questionData = {
+                domanda: document.getElementById('question-text').value,
+                opzione_a: document.getElementById('option-a').value,
+                opzione_b: document.getElementById('option-b').value,
+                opzione_c: document.getElementById('option-c').value,
+                opzione_d: document.getElementById('option-d').value,
+                risposta_corretta: document.getElementById('correct-answer').value,
+                categoria: document.getElementById('category').value
+            };
+
+            const questionId = document.getElementById('question-id').value;
+            const isEdit = questionId !== '';
+
+            const url = isEdit ?
+                `/api/gamemaster/quiz-questions/${questionId}` :
+                '/api/gamemaster/quiz-questions';
+
+            const method = isEdit ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(questionData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(isEdit ? 'Domanda modificata' : 'Domanda aggiunta');
+                    closeQuestionModal();
+                    loadQuestions();
+                }
+            })
+            .catch(error => {
+                showNotification('Errore salvataggio domanda', 'error');
+            });
+        });
+
+        // Utility functions
+        function getGameName(gameType) {
+            const names = {
+                'quiz_personalizzato': 'Quiz Personalizzato',
+                'indovina_chi': 'Indovina Chi',
+                'quiz_squadre': 'Quiz a Squadre',
+                'votazione_costumi': 'Votazione Costumi'
+            };
+            return names[gameType] || gameType;
+        }
+
+        function getDefaultMessage(gameType) {
+            const messages = {
+                'quiz_personalizzato': 'È ora di testare quanto conoscete il festeggiato!',
+                'indovina_chi': 'Riuscite a indovinare chi si nasconde dietro ogni indizio?',
+                'quiz_squadre': 'Lavorate in squadra per vincere!',
+                'votazione_costumi': 'Votate il costume più bello della serata!'
+            };
+            return messages[gameType] || 'Nuovo gioco disponibile!';
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 10px;
+                color: white;
+                font-weight: bold;
+                z-index: 1000;
+                background: ${type === 'error' ? '#e74c3c' : '#27ae60'};
+                transform: translateX(400px);
+                transition: transform 0.3s ease;
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => notification.style.transform = 'translateX(0)', 100);
+            setTimeout(() => {
+                notification.style.transform = 'translateX(400px)';
+                setTimeout(() => document.body.removeChild(notification), 300);
+            }, 3000);
+        }
+
+        function loadDetailedStats() {
+            // Implementa caricamento statistiche dettagliate
+            document.getElementById('detailed-stats').innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">${playersData.length}</div>
+                        <div class="stat-label">Giocatori Registrati</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${questionsData.length}</div>
+                        <div class="stat-label">Domande Disponibili</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">4</div>
+                        <div class="stat-label">Squadre Attive</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Inizializzazione con controllo di autenticazione
+        window.onload = function() {
+            // Controlla se già autenticato come gamemaster
+            fetch('/api/gamemaster/check-auth')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.authenticated) {
+                        // Già autenticato, mostra il pannello
+                        document.getElementById('login-page').style.display = 'none';
+                        document.getElementById('gamemaster-panel').style.display = 'block';
+                        loadGamemasterData();
+                    } else {
+                        // Non autenticato, mostra login
+                        document.getElementById('login-page').style.display = 'block';
+                        document.getElementById('gamemaster-panel').style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Errore controllo autenticazione:', error);
+                    // In caso di errore, mostra sempre il login
+                    document.getElementById('login-page').style.display = 'block';
+                    document.getElementById('gamemaster-panel').style.display = 'none';
+                });
+        };
+
+        function loadGamemasterData() {
+            loadPlayers();
+            updateStats();
+
+            // Aggiorna ogni 10 secondi se nella tab giocatori
+            setInterval(() => {
+                if (document.querySelector('.tab-content.active').id === 'players-tab') {
+                    loadPlayers();
+                }
+                updateStats();
+            }, 10000);
+        }
+
+        function updateStats() {
+            // Aggiorna statistiche in tempo reale
+            const totalPlayers = playersData.length || 0;
+            const activeParticipants = currentGame ? Math.floor(totalPlayers * 0.8) : 0; // Simula partecipazione
+            const completedGames = questionsData.length > 0 ? Math.floor(questionsData.length / 5) : 0;
+
+            document.getElementById('total-players').textContent = totalPlayers;
+            document.getElementById('active-participants').textContent = activeParticipants;
+            document.getElementById('completed-games').textContent = completedGames;
+            document.getElementById('active-players').textContent = `${totalPlayers} giocatori connessi`;
+        }
+
+        // Chiudi modal cliccando fuori
+        window.onclick = function(event) {
+            const modal = document.getElementById('question-modal');
+            if (event.target == modal) {
+                closeQuestionModal();
+            }
+        }
+    </script>
+</body>
+</html>

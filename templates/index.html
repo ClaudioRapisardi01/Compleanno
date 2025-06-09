@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎭 Festa di Compleanno - Giochi</title>
+    <title>🎭 Festa di Compleanno - Benvenuto</title>
     <style>
         * {
             margin: 0;
@@ -16,93 +16,357 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: white;
+            overflow-x: hidden;
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
+            position: relative;
         }
 
-        .header {
+        /* Animazioni di sfondo */
+        .floating-icons {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .floating-icon {
+            position: absolute;
+            font-size: 2em;
+            opacity: 0.1;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(10deg); }
+        }
+
+        .main-content {
+            position: relative;
+            z-index: 10;
+        }
+
+        .welcome-header {
             text-align: center;
-            margin-bottom: 40px;
-            padding: 30px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
+            margin-bottom: 50px;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 25px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: slideInDown 1s ease-out;
         }
 
-        .header h1 {
-            font-size: 3em;
-            margin-bottom: 10px;
-            color: #fff;
+        @keyframes slideInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .welcome-header h1 {
+            font-size: 3.5em;
+            margin-bottom: 15px;
+            background: linear-gradient(45deg, #ffd700, #ffed4e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
 
-        .header p {
-            font-size: 1.2em;
+        .welcome-header p {
+            font-size: 1.3em;
             opacity: 0.9;
+            margin-bottom: 20px;
         }
 
-        .games-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
+        .party-emoji {
+            font-size: 2em;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+
+        /* Form di registrazione */
+        .registration-container {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 25px;
+            padding: 40px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: slideInUp 1s ease-out 0.3s both;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
             margin-bottom: 40px;
         }
 
-        .game-card {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 20px;
-            padding: 30px;
-            text-align: center;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+        .step {
+            display: flex;
+            align-items: center;
+            margin: 0 20px;
+            opacity: 0.5;
+            transition: all 0.3s ease;
         }
 
-        .game-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        .step.active {
+            opacity: 1;
+            transform: scale(1.1);
         }
 
-        .game-icon {
-            font-size: 4em;
-            margin-bottom: 20px;
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .step.active .step-number {
+            background: linear-gradient(45deg, #ffd700, #ffed4e);
+            color: #333;
+        }
+
+        .form-step {
+            display: none;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .form-step.active {
             display: block;
         }
 
-        .game-card h3 {
-            font-size: 1.5em;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #ffd700;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.1em;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            transform: scale(1.02);
+        }
+
+        /* Griglia personaggi */
+        .personaggi-section {
+            text-align: center;
+        }
+
+        .personaggi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 20px;
+            margin-top: 25px;
+        }
+
+        .personaggio-card {
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid transparent;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .personaggio-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .personaggio-card:hover::before {
+            left: 100%;
+        }
+
+        .personaggio-card:hover {
+            border-color: #ffd700;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 15px 30px rgba(255, 215, 0, 0.3);
+        }
+
+        .personaggio-card.selected {
+            border-color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.3);
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(255, 107, 107, 0.4);
+        }
+
+        .personaggio-card.unavailable {
+            opacity: 0.4;
+            cursor: not-allowed;
+            filter: grayscale(100%);
+        }
+
+        .personaggio-emoji {
+            font-size: 3.5em;
             margin-bottom: 15px;
+            display: block;
+            transition: transform 0.3s ease;
+        }
+
+        .personaggio-card:hover .personaggio-emoji {
+            transform: scale(1.2) rotate(5deg);
+        }
+
+        .personaggio-name {
+            font-size: 1em;
+            font-weight: bold;
+            margin-bottom: 8px;
             color: #fff;
         }
 
-        .game-card p {
+        .personaggio-desc {
+            font-size: 0.8em;
             opacity: 0.8;
-            margin-bottom: 20px;
-            line-height: 1.6;
+            line-height: 1.3;
+            color: #f0f0f0;
         }
 
+        /* Squadre */
+        .team-selector {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .team-option {
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid transparent;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .team-option:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        .team-option.selected {
+            border-color: #ffd700;
+            background: rgba(255, 215, 0, 0.2);
+            box-shadow: 0 10px 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .team-red { border-left: 5px solid #ff4757; }
+        .team-blue { border-left: 5px solid #3742fa; }
+        .team-green { border-left: 5px solid #2ed573; }
+        .team-yellow { border-left: 5px solid #ffa502; }
+
+        /* Bottoni */
         .btn {
             background: linear-gradient(45deg, #ff6b6b, #ee5a52);
             color: white;
             border: none;
-            padding: 15px 30px;
+            padding: 18px 35px;
             border-radius: 50px;
-            font-size: 1.1em;
+            font-size: 1.2em;
             font-weight: bold;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.4s ease;
             text-decoration: none;
             display: inline-block;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
         }
 
         .btn:hover {
             background: linear-gradient(45deg, #ee5a52, #ff6b6b);
-            transform: scale(1.05);
-            box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3);
+            transform: scale(1.08);
+            box-shadow: 0 15px 30px rgba(255, 107, 107, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            background: #666;
         }
 
         .btn-secondary {
@@ -111,337 +375,408 @@
 
         .btn-secondary:hover {
             background: linear-gradient(45deg, #44a08d, #4ecdc4);
-            box-shadow: 0 10px 20px rgba(78, 205, 196, 0.3);
+            box-shadow: 0 15px 30px rgba(78, 205, 196, 0.4);
         }
 
-        .classifica-mini {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            padding: 30px;
-            backdrop-filter: blur(10px);
+        .btn-success {
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
         }
 
-        .classifica-mini h3 {
-            text-align: center;
-            margin-bottom: 20px;
-            font-size: 1.8em;
+        .btn-success:hover {
+            background: linear-gradient(45deg, #2ecc71, #27ae60);
+            box-shadow: 0 15px 30px rgba(39, 174, 96, 0.4);
         }
 
-        .player-row {
+        /* Controlli navigazione */
+        .form-navigation {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
         }
 
-        .player-row:last-child {
-            border-bottom: none;
+        /* Loading spinner */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
 
-        .player-position {
-            font-weight: bold;
-            width: 30px;
-            text-align: center;
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #ffd700;
+            animation: spin 1s ease-in-out infinite;
         }
 
-        .player-info {
-            flex: 1;
-            margin-left: 15px;
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
-        .player-points {
-            font-weight: bold;
-            color: #ffd700;
-        }
-
-        .registration-form {
-            max-width: 500px;
-            margin: 0 auto;
-            background: rgba(255, 255, 255, 0.15);
-            padding: 40px;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-        }
-
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 10px;
-            font-size: 1em;
-            background: rgba(255, 255, 255, 0.9);
-            color: #333;
-        }
-
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-        }
-
-        .game-status {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            padding: 30px;
-            text-align: center;
-            margin-bottom: 30px;
-            backdrop-filter: blur(10px);
-        }
-
-        .game-status h3 {
-            margin-bottom: 15px;
-            color: #ffd700;
-        }
-
-        .personaggi-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-
-        .personaggio-card {
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid transparent;
-            border-radius: 15px;
-            padding: 15px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .personaggio-card:hover {
-            border-color: #ffd700;
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        .personaggio-card.selected {
-            border-color: #ff6b6b;
-            background: rgba(255, 107, 107, 0.3);
-        }
-
-        .personaggio-card .emoji {
-            font-size: 2.5em;
-            margin-bottom: 8px;
-            display: block;
-        }
-
-        .personaggio-card .name {
-            font-size: 0.9em;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .personaggio-card .desc {
-            font-size: 0.7em;
-            opacity: 0.8;
-            line-height: 1.2;
-        }
-
-        .game-card.disabled {
-            opacity: 0.6;
-            pointer-events: none;
-        }
-
-        .btn.disabled {
-            background: #666;
-            cursor: not-allowed;
-        }
-
+        /* Notification */
         .notification {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 20px;
-            border-radius: 10px;
+            top: 30px;
+            right: 30px;
+            padding: 20px 25px;
+            border-radius: 15px;
             color: white;
             font-weight: bold;
             z-index: 1000;
             transform: translateX(400px);
-            transition: transform 0.3s ease;
+            transition: transform 0.4s ease;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         }
 
         .notification.success {
-            background: #4caf50;
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
         }
 
         .notification.error {
-            background: #f44336;
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
         }
 
         .notification.show {
             transform: translateX(0);
         }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .welcome-header h1 {
+                font-size: 2.5em;
+            }
+
+            .personaggi-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
+
+            .team-selector {
+                grid-template-columns: 1fr;
+            }
+
+            .form-navigation {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .step {
+                margin: 0 10px;
+            }
+
+            .step-text {
+                display: none;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+            }
+
+            .welcome-header, .registration-container {
+                padding: 25px;
+            }
+
+            .personaggi-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
+    <!-- Icone fluttuanti di sfondo -->
+    <div class="floating-icons" id="floating-icons"></div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+    </div>
+
     <div class="container">
-        <div class="header">
-            <h1>🎭 Festa di Compleanno in Maschera</h1>
-            <p>Benvenuti ai giochi della festa! Divertitevi e accumulate punti!</p>
-        </div>
+        <div class="main-content">
+            <!-- Header di benvenuto -->
+            <div class="welcome-header">
+                <h1>🎭 Festa di Compleanno</h1>
+                <p>Benvenuto alla festa più divertente dell'anno!</p>
+                <div class="party-emoji">🎉🎂🎈</div>
+            </div>
 
-        <!-- Pagina di registrazione -->
-        <div id="registration-page" style="display: none;">
-            <div class="registration-form">
-                <h2 style="text-align: center; margin-bottom: 30px;">🎪 Scegli il tuo Personaggio</h2>
+            <!-- Container registrazione -->
+            <div class="registration-container">
+                <!-- Indicatore step -->
+                <div class="step-indicator">
+                    <div class="step active" id="step-1">
+                        <div class="step-number">1</div>
+                        <div class="step-text">Nome</div>
+                    </div>
+                    <div class="step" id="step-2">
+                        <div class="step-number">2</div>
+                        <div class="step-text">Squadra</div>
+                    </div>
+                    <div class="step" id="step-3">
+                        <div class="step-number">3</div>
+                        <div class="step-text">Personaggio</div>
+                    </div>
+                </div>
+
                 <form id="registration-form">
-                    <div class="form-group">
-                        <label for="nome">Il tuo nome:</label>
-                        <input type="text" id="nome" name="nome" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="squadra">Scegli la tua squadra:</label>
-                        <select id="squadra" name="squadra" required>
-                            <option value="">-- Seleziona squadra --</option>
-                            <option value="Rossi">🔴 Squadra Rossa</option>
-                            <option value="Blu">🔵 Squadra Blu</option>
-                            <option value="Verdi">🟢 Squadra Verde</option>
-                            <option value="Gialli">🟡 Squadra Gialla</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Scegli il tuo personaggio:</label>
-                        <div class="personaggi-grid" id="personaggi-grid">
-                            <!-- I personaggi verranno caricati dinamicamente -->
+                    <!-- Step 1: Nome -->
+                    <div class="form-step active" id="step1-content">
+                        <div class="form-group">
+                            <label for="nome">👤 Come ti chiami?</label>
+                            <input type="text" id="nome" name="nome" placeholder="Inserisci il tuo nome" required>
                         </div>
-                        <input type="hidden" id="personaggio_id" name="personaggio_id" required>
                     </div>
 
-                    <button type="submit" class="btn" style="width: 100%; margin-top: 20px;">
-                        🎭 Inizia a Giocare!
-                    </button>
+                    <!-- Step 2: Squadra -->
+                    <div class="form-step" id="step2-content">
+                        <div class="form-group">
+                            <label>🏆 Scegli la tua squadra:</label>
+                            <div class="team-selector">
+                                <div class="team-option team-red" onclick="selectTeam('Rossi', this)">
+                                    🔴 Squadra Rossa
+                                </div>
+                                <div class="team-option team-blue" onclick="selectTeam('Blu', this)">
+                                    🔵 Squadra Blu
+                                </div>
+                                <div class="team-option team-green" onclick="selectTeam('Verdi', this)">
+                                    🟢 Squadra Verde
+                                </div>
+                                <div class="team-option team-yellow" onclick="selectTeam('Gialli', this)">
+                                    🟡 Squadra Gialla
+                                </div>
+                            </div>
+                            <input type="hidden" id="squadra" name="squadra" required>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Personaggio -->
+                    <div class="form-step" id="step3-content">
+                        <div class="personaggi-section">
+                            <label>🎭 Scegli il tuo personaggio:</label>
+                            <div class="personaggi-grid" id="personaggi-grid">
+                                <!-- I personaggi verranno caricati dinamicamente -->
+                            </div>
+                            <input type="hidden" id="personaggio_id" name="personaggio_id" required>
+                        </div>
+                    </div>
+
+                    <!-- Navigazione -->
+                    <div class="form-navigation">
+                        <button type="button" class="btn btn-secondary" id="prev-btn" onclick="previousStep()" style="display: none;">
+                            ⬅️ Indietro
+                        </button>
+                        <div></div>
+                        <button type="button" class="btn" id="next-btn" onclick="nextStep()" disabled>
+                            Avanti ➡️
+                        </button>
+                        <button type="submit" class="btn btn-success" id="submit-btn" style="display: none;">
+                            🎭 Entra alla Festa!
+                        </button>
+                    </div>
                 </form>
-            </div>
-        </div>
-
-        <!-- Dashboard principale -->
-        <div id="main-dashboard">
-            <div class="game-status" id="game-status">
-                <h3>📢 Stato del Gioco</h3>
-                <p id="status-message">In attesa del gamemaster...</p>
-                <div id="active-game-btn" style="display: none;">
-                    <a href="#" class="btn" onclick="joinActiveGame()">Partecipa al Gioco!</a>
-                </div>
-            </div>
-
-            <div class="games-grid">
-                <div class="game-card disabled" id="quiz-card">
-                    <span class="game-icon">🧠</span>
-                    <h3>Quiz Personalizzato</h3>
-                    <p>Metti alla prova la tua conoscenza del festeggiato con domande personalizzate!</p>
-                    <span class="btn disabled">In attesa...</span>
-                </div>
-
-                <div class="game-card disabled" id="indovina-card">
-                    <span class="game-icon">🕵️</span>
-                    <h3>Indovina Chi</h3>
-                    <p>Riconosci gli amici dagli indizi? Scopri chi si nasconde dietro ogni descrizione!</p>
-                    <span class="btn disabled">In attesa...</span>
-                </div>
-
-                <div class="game-card disabled" id="squadre-card">
-                    <span class="game-icon">👥</span>
-                    <h3>Quiz a Squadre</h3>
-                    <p>Collabora con la tua squadra e rispondete insieme alle domande più difficili!</p>
-                    <span class="btn disabled">In attesa...</span>
-                </div>
-
-                <div class="game-card disabled" id="votazione-card">
-                    <span class="game-icon">🎭</span>
-                    <h3>Votazione Costumi</h3>
-                    <p>Vota il costume più bello, originale o divertente della serata!</p>
-                    <span class="btn disabled">In attesa...</span>
-                </div>
-            </div>
-
-            <div class="classifica-mini">
-                <h3>🏆 Classifica Live</h3>
-                <div id="live-leaderboard">
-                    <div class="player-row">
-                        <span class="player-position">1°</span>
-                        <div class="player-info">
-                            <strong>Marco</strong> - Squadra Rossa
-                        </div>
-                        <span class="player-points">150 pt</span>
-                    </div>
-                    <div class="player-row">
-                        <span class="player-position">2°</span>
-                        <div class="player-info">
-                            <strong>Sara</strong> - Squadra Blu
-                        </div>
-                        <span class="player-points">130 pt</span>
-                    </div>
-                    <div class="player-row">
-                        <span class="player-position">3°</span>
-                        <div class="player-info">
-                            <strong>Luca</strong> - Squadra Verde
-                        </div>
-                        <span class="player-points">120 pt</span>
-                    </div>
-                </div>
-                <div style="text-align: center; margin-top: 20px;">
-                    <a href="#" class="btn btn-secondary" onclick="showFullLeaderboard()">
-                        Classifica Completa
-                    </a>
-                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Funzioni JavaScript per gestire l'interfaccia
-        function showNotification(message, type = 'success') {
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.textContent = message;
-            document.body.appendChild(notification);
+        let currentStep = 1;
+        let selectedTeam = null;
+        let selectedPersonaggio = null;
+        let availablePersonaggi = [];
 
-            setTimeout(() => notification.classList.add('show'), 100);
-            setTimeout(() => {
-                notification.classList.remove('show');
-                setTimeout(() => document.body.removeChild(notification), 300);
-            }, 3000);
+        // Genera icone fluttuanti
+        function createFloatingIcons() {
+            const icons = ['🎭', '🎉', '🎂', '🎈', '🎪', '🎊', '🥳', '🎁', '🌟', '✨'];
+            const container = document.getElementById('floating-icons');
+
+            for (let i = 0; i < 15; i++) {
+                const icon = document.createElement('div');
+                icon.className = 'floating-icon';
+                icon.textContent = icons[Math.floor(Math.random() * icons.length)];
+                icon.style.left = Math.random() * 100 + '%';
+                icon.style.top = Math.random() * 100 + '%';
+                icon.style.animationDelay = Math.random() * 6 + 's';
+                icon.style.animationDuration = (4 + Math.random() * 4) + 's';
+                container.appendChild(icon);
+            }
         }
 
-        function startGame(gameType) {
-            // Simula l'avvio di un gioco
-            showNotification(`Caricamento ${gameType}...`);
-            setTimeout(() => {
-                window.location.href = `/${gameType}`;
-            }, 1000);
+        // Carica personaggi disponibili
+        function loadPersonaggi() {
+            showLoading();
+            fetch('/api/personaggi-disponibili')
+                .then(response => response.json())
+                .then(personaggi => {
+                    availablePersonaggi = personaggi;
+                    displayPersonaggi(personaggi);
+                    hideLoading();
+                })
+                .catch(error => {
+                    console.error('Errore caricamento personaggi:', error);
+                    showNotification('Errore nel caricamento dei personaggi', 'error');
+                    hideLoading();
+                });
         }
 
-        function showFullLeaderboard() {
-            window.location.href = '/classifica';
-        }
+        function displayPersonaggi(personaggi) {
+            const grid = document.getElementById('personaggi-grid');
+            grid.innerHTML = '';
 
-        // Gestione form di registrazione
-        document.getElementById('registration-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            const personaggioId = document.getElementById('personaggio_id').value;
-            if (!personaggioId) {
-                showNotification('Seleziona un personaggio!', 'error');
+            if (personaggi.length === 0) {
+                grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; opacity: 0.7;">Nessun personaggio disponibile al momento</p>';
                 return;
             }
 
+            personaggi.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'personaggio-card';
+                card.onclick = () => selectPersonaggio(p.id, card);
+
+                const emoji = p.nome.split(' ')[0];
+                const nome = p.nome.substring(p.nome.indexOf(' ') + 1);
+
+                card.innerHTML = `
+                    <span class="personaggio-emoji">${emoji}</span>
+                    <div class="personaggio-name">${nome}</div>
+                    <div class="personaggio-desc">${p.descrizione}</div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        // Selezione squadra
+        function selectTeam(team, element) {
+            // Rimuovi selezione precedente
+            document.querySelectorAll('.team-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+
+            // Seleziona nuova squadra
+            element.classList.add('selected');
+            selectedTeam = team;
+            document.getElementById('squadra').value = team;
+
+            // Abilita pulsante avanti
+            updateNavigationButtons();
+        }
+
+        // Selezione personaggio
+        function selectPersonaggio(id, element) {
+            // Rimuovi selezione precedente
+            document.querySelectorAll('.personaggio-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+
+            // Seleziona nuovo personaggio
+            element.classList.add('selected');
+            selectedPersonaggio = id;
+            document.getElementById('personaggio_id').value = id;
+
+            // Abilita pulsante submit
+            updateNavigationButtons();
+        }
+
+        // Navigazione step
+        function nextStep() {
+            if (currentStep < 3) {
+                // Nascondi step corrente
+                document.getElementById(`step${currentStep}-content`).classList.remove('active');
+                document.getElementById(`step-${currentStep}`).classList.remove('active');
+
+                // Mostra prossimo step
+                currentStep++;
+                document.getElementById(`step${currentStep}-content`).classList.add('active');
+                document.getElementById(`step-${currentStep}`).classList.add('active');
+
+                // Se siamo al step 3, carica i personaggi
+                if (currentStep === 3) {
+                    loadPersonaggi();
+                }
+
+                updateNavigationButtons();
+            }
+        }
+
+        function previousStep() {
+            if (currentStep > 1) {
+                // Nascondi step corrente
+                document.getElementById(`step${currentStep}-content`).classList.remove('active');
+                document.getElementById(`step-${currentStep}`).classList.remove('active');
+
+                // Mostra step precedente
+                currentStep--;
+                document.getElementById(`step${currentStep}-content`).classList.add('active');
+                document.getElementById(`step-${currentStep}`).classList.add('active');
+
+                updateNavigationButtons();
+            }
+        }
+
+        function updateNavigationButtons() {
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const submitBtn = document.getElementById('submit-btn');
+
+            // Mostra/nascondi pulsante indietro
+            prevBtn.style.display = currentStep > 1 ? 'block' : 'none';
+
+            if (currentStep === 3) {
+                // Ultimo step
+                nextBtn.style.display = 'none';
+                submitBtn.style.display = 'block';
+                submitBtn.disabled = !selectedPersonaggio;
+            } else {
+                nextBtn.style.display = 'block';
+                submitBtn.style.display = 'none';
+
+                // Abilita/disabilita pulsante avanti
+                if (currentStep === 1) {
+                    const nome = document.getElementById('nome').value.trim();
+                    nextBtn.disabled = !nome;
+                } else if (currentStep === 2) {
+                    nextBtn.disabled = !selectedTeam;
+                }
+            }
+        }
+
+        // Validazione input nome
+        document.getElementById('nome').addEventListener('input', function() {
+            updateNavigationButtons();
+        });
+
+        // Gestione submit form
+        document.getElementById('registration-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const nome = document.getElementById('nome').value.trim();
+            const squadra = document.getElementById('squadra').value;
+            const personaggio_id = document.getElementById('personaggio_id').value;
+
+            if (!nome || !squadra || !personaggio_id) {
+                showNotification('Completa tutti i campi!', 'error');
+                return;
+            }
+
+            showLoading();
+
             const formData = {
-                nome: document.getElementById('nome').value,
-                squadra: document.getElementById('squadra').value,
-                personaggio_id: personaggioId
+                nome: nome,
+                squadra: squadra,
+                personaggio_id: personaggio_id
             };
 
             fetch('/register', {
@@ -453,152 +788,88 @@
             })
             .then(response => response.json())
             .then(data => {
+                hideLoading();
                 if (data.success) {
-                    showNotification('Registrazione completata!');
+                    showNotification('Registrazione completata! Benvenuto alla festa! 🎉');
                     setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
+                        window.location.href = '/dashboard';
+                    }, 2000);
                 } else {
                     showNotification(data.error || 'Errore durante la registrazione', 'error');
+
+                    // Se il personaggio non è più disponibile, ricarica la lista
+                    if (data.error && data.error.includes('disponibile')) {
+                        loadPersonaggi();
+                    }
                 }
             })
             .catch(error => {
+                hideLoading();
                 showNotification('Errore di connessione', 'error');
+                console.error('Errore registrazione:', error);
             });
         });
 
-        // Carica personaggi disponibili
-        function loadPersonaggi() {
-            // Simula caricamento personaggi (in realtà dovrebbe venire dal server)
-            const personaggi = [
-                {id: 1, nome: '🏴‍☠️ Capitano Pirata', descrizione: 'Coraggioso comandante dei sette mari'},
-                {id: 2, nome: '👸 Principessa Reale', descrizione: 'Elegante principessa con corona'},
-                {id: 3, nome: '🦸‍♂️ Super Eroe', descrizione: 'Difensore della giustizia'},
-                {id: 4, nome: '🧙‍♀️ Maga Misteriosa', descrizione: 'Potente maga con bacchetta'},
-                {id: 5, nome: '🤠 Cowboy del West', descrizione: 'Coraggioso ranger texano'},
-                {id: 6, nome: '🧛‍♂️ Conte Vampiro', descrizione: 'Misterioso nobile della notte'}
-            ];
-
-            const grid = document.getElementById('personaggi-grid');
-            grid.innerHTML = '';
-
-            personaggi.forEach(p => {
-                const card = document.createElement('div');
-                card.className = 'personaggio-card';
-                card.onclick = () => selectPersonaggio(p.id, card);
-
-                const emoji = p.nome.split(' ')[0];
-                const nome = p.nome.substring(p.nome.indexOf(' ') + 1);
-
-                card.innerHTML = `
-                    <span class="emoji">${emoji}</span>
-                    <div class="name">${nome}</div>
-                    <div class="desc">${p.descrizione}</div>
-                `;
-
-                grid.appendChild(card);
-            });
+        // Utility functions
+        function showLoading() {
+            document.getElementById('loading-overlay').style.display = 'flex';
         }
 
-        function selectPersonaggio(id, cardElement) {
-            // Rimuovi selezione precedente
-            document.querySelectorAll('.personaggio-card').forEach(card => {
-                card.classList.remove('selected');
-            });
-
-            // Seleziona nuovo personaggio
-            cardElement.classList.add('selected');
-            document.getElementById('personaggio_id').value = id;
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
         }
 
-        // Controlla stato del gioco
-        function checkGameStatus() {
-            // Simula controllo stato gioco
-            const gameStatus = 'waiting'; // 'waiting', 'quiz_personalizzato', 'indovina_chi', etc.
-            const message = 'In attesa che il gamemaster avvii il prossimo gioco...';
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
 
-            document.getElementById('status-message').textContent = message;
-
-            // Abilita/disabilita pulsanti giochi
-            const games = ['quiz', 'indovina', 'squadre', 'votazione'];
-            games.forEach(game => {
-                const card = document.getElementById(game + '-card');
-                if (gameStatus === 'waiting') {
-                    card.classList.add('disabled');
-                } else {
-                    card.classList.remove('disabled');
-                }
-            });
-
-            if (gameStatus !== 'waiting') {
-                document.getElementById('active-game-btn').style.display = 'block';
-            }
+            setTimeout(() => notification.classList.add('show'), 100);
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 400);
+            }, 4000);
         }
 
-        function joinActiveGame() {
-            // Reindirizza al gioco attivo
-            showNotification('Caricamento gioco attivo...');
-            // window.location.href = '/active-game-url';
-        }
-
-        // Aggiorna la classifica ogni 30 secondi
-        function updateLeaderboard() {
-            fetch('/api/classifica')
+        // Controllo sessione esistente
+        function checkExistingSession() {
+            fetch('/api/check-session')
                 .then(response => response.json())
                 .then(data => {
-                    const leaderboard = document.getElementById('live-leaderboard');
-                    leaderboard.innerHTML = '';
-
-                    data.forEach((player, index) => {
-                        const row = document.createElement('div');
-                        row.className = 'player-row';
-                        row.innerHTML = `
-                            <span class="player-position">${index + 1}°</span>
-                            <div class="player-info">
-                                <strong>${player.nome}</strong> - ${player.squadra}
-                            </div>
-                            <span class="player-points">${player.punti} pt</span>
-                        `;
-                        leaderboard.appendChild(row);
-                    });
+                    if (data.logged_in) {
+                        showNotification('Bentornato! Reindirizzamento alla dashboard...');
+                        setTimeout(() => {
+                            window.location.href = '/dashboard';
+                        }, 1500);
+                    }
                 })
-                .catch(error => console.log('Errore aggiornamento classifica:', error));
+                .catch(error => {
+                    console.log('Nessuna sessione esistente');
+                });
         }
 
-        // Avvia aggiornamento classifica
-        setInterval(updateLeaderboard, 30000);
-
-        // Controlla se l'utente è già registrato
+        // Inizializzazione
         window.onload = function() {
-            // Carica personaggi disponibili
-            loadPersonaggi();
-
-            // Controlla stato registrazione
-            document.getElementById('registration-page').style.display = 'block';
-            document.getElementById('main-dashboard').style.display = 'none';
-
-            // Avvia controllo stato gioco
-            checkGameStatus();
-            setInterval(checkGameStatus, 10000); // Controlla ogni 10 secondi
+            createFloatingIcons();
+            checkExistingSession();
+            updateNavigationButtons();
         };
 
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 2em;
+        // Gestione tasti
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                if (currentStep < 3 && !document.getElementById('next-btn').disabled) {
+                    nextStep();
+                } else if (currentStep === 3 && !document.getElementById('submit-btn').disabled) {
+                    document.getElementById('registration-form').dispatchEvent(new Event('submit'));
+                }
             }
-
-            .games-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .game-card {
-                padding: 20px;
-            }
-
-            .personaggi-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
+        });
     </script>
 </body>
 </html>
