@@ -282,6 +282,12 @@
             animation: pulse 2s infinite;
         }
 
+        .game-status.lupus-active {
+            border-color: #e74c3c;
+            background: rgba(231, 76, 60, 0.2);
+            animation: lupusPulse 2s infinite;
+        }
+
         @keyframes pulse {
             0% {
                 box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
@@ -291,6 +297,29 @@
             }
             100% {
                 box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+            }
+        }
+
+        @keyframes lupusPulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 20px rgba(231, 76, 60, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(231, 76, 60, 0);
+            }
+        }
+
+        @keyframes lupusGlow {
+            0% {
+                text-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+                transform: scale(1);
+            }
+            100% {
+                text-shadow: 0 0 25px rgba(231, 76, 60, 1), 0 0 35px rgba(231, 76, 60, 0.8);
+                transform: scale(1.1);
             }
         }
 
@@ -321,6 +350,10 @@
             overflow: hidden;
         }
 
+        .join-game-btn.lupus-btn {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+        }
+
         .join-game-btn::before {
             content: '';
             position: absolute;
@@ -342,6 +375,10 @@
         .join-game-btn:hover {
             transform: scale(1.1);
             box-shadow: 0 15px 30px rgba(39, 174, 96, 0.4);
+        }
+
+        .join-game-btn.lupus-btn:hover {
+            box-shadow: 0 15px 30px rgba(231, 76, 60, 0.4);
         }
 
         /* Griglia giochi */
@@ -408,6 +445,32 @@
             animation: bounce 1s infinite;
         }
 
+        .game-card.lupus-card {
+            background: linear-gradient(135deg, rgba(44, 62, 80, 0.3), rgba(52, 73, 94, 0.3));
+            border: 2px solid #2c3e50;
+        }
+
+        .game-card.lupus-card:hover {
+            box-shadow: 0 25px 50px rgba(44, 62, 80, 0.4);
+            border-color: #e74c3c;
+        }
+
+        .game-card.lupus-card.active {
+            border-color: #e74c3c;
+            background: linear-gradient(135deg, rgba(231, 76, 60, 0.3), rgba(192, 57, 43, 0.3));
+            box-shadow: 0 20px 40px rgba(231, 76, 60, 0.4);
+        }
+
+        .game-card.lupus-card .game-icon {
+            text-shadow: 0 0 20px rgba(231, 76, 60, 0.8);
+        }
+
+        .game-card.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            filter: grayscale(50%);
+        }
+
         @keyframes bounce {
             0%, 20%, 50%, 80%, 100% {
                 transform: translateY(0);
@@ -418,12 +481,6 @@
             60% {
                 transform: translateY(-5px);
             }
-        }
-
-        .game-card.disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            filter: grayscale(50%);
         }
 
         .game-icon {
@@ -498,6 +555,62 @@
 
         .game-btn.active:hover {
             box-shadow: 0 10px 20px rgba(39, 174, 96, 0.4);
+        }
+
+        .game-btn.lupus-btn {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+        }
+
+        .game-btn.lupus-btn:hover {
+            box-shadow: 0 10px 20px rgba(231, 76, 60, 0.4);
+        }
+
+        /* Info speciale Lupus */
+        .lupus-info {
+            background: rgba(231, 76, 60, 0.2);
+            border: 2px solid #e74c3c;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .lupus-role {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .lupus-role-icon {
+            font-size: 2em;
+            animation: lupusGlow 2s infinite alternate;
+        }
+
+        .lupus-phase-info {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .lupus-stat {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .lupus-stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .lupus-stat-label {
+            font-size: 0.8em;
+            opacity: 0.8;
         }
 
         /* Classifica live */
@@ -665,6 +778,11 @@
             background: linear-gradient(45deg, #3498db, #2980b9);
         }
 
+        .notification.lupus {
+            background: linear-gradient(45deg, #2c3e50, #34495e);
+            border: 2px solid #e74c3c;
+        }
+
         .notification.show {
             transform: translateX(0);
         }
@@ -793,6 +911,10 @@
                 flex-direction: column;
                 align-items: center;
             }
+
+            .lupus-phase-info {
+                grid-template-columns: 1fr;
+            }
         }
 
         @media (max-width: 480px) {
@@ -882,6 +1004,31 @@
             </button>
         </div>
 
+        <!-- Info speciale Lupus (mostrata solo quando Lupus è attivo) -->
+        <div class="lupus-info" id="lupus-info" style="display: none;">
+            <div class="lupus-role">
+                <span class="lupus-role-icon" id="lupus-role-icon">🎭</span>
+                <div>
+                    <strong id="lupus-role-name">Il tuo ruolo</strong>
+                    <div id="lupus-role-team" style="font-size: 0.9em; opacity: 0.8;"></div>
+                </div>
+            </div>
+            <div class="lupus-phase-info">
+                <div class="lupus-stat">
+                    <div class="lupus-stat-value" id="lupus-phase">Notte</div>
+                    <div class="lupus-stat-label">Fase Attuale</div>
+                </div>
+                <div class="lupus-stat">
+                    <div class="lupus-stat-value" id="lupus-turn">1</div>
+                    <div class="lupus-stat-label">Turno</div>
+                </div>
+                <div class="lupus-stat">
+                    <div class="lupus-stat-value" id="lupus-time">5:00</div>
+                    <div class="lupus-stat-label">Tempo Rimasto</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Sezione giochi -->
         <div class="games-section">
             <h2 class="section-title">🎯 Giochi Disponibili</h2>
@@ -900,11 +1047,11 @@
                     <button class="game-btn disabled" id="indovina-btn">In attesa...</button>
                 </div>
 
-                <div class="game-card disabled" id="squadre-card">
-                    <span class="game-icon">👥</span>
-                    <h3>Quiz a Squadre</h3>
-                    <p>Collabora con la tua squadra e rispondete insieme alle domande più difficili!</p>
-                    <button class="game-btn disabled" id="squadre-btn">In attesa...</button>
+                <div class="game-card disabled lupus-card" id="lupus-card">
+                    <span class="game-icon">🐺</span>
+                    <h3>Lupus in Fabula</h3>
+                    <p>Chi sono i lupi tra voi? Scoprite la verità prima che sia troppo tardi!</p>
+                    <button class="game-btn disabled lupus-btn" id="lupus-btn">In attesa...</button>
                 </div>
 
                 <div class="game-card disabled" id="votazione-card">
@@ -962,6 +1109,7 @@
             teams: []
         };
         let refreshInterval;
+        let lupusData = null;
 
         // Inizializzazione
         window.onload = function() {
@@ -1161,7 +1309,17 @@
                         updateGameCards(gameStatus);
 
                         if (gameStatus) {
-                            showNotification(`🎮 ${getGameName(gameStatus)} è ora disponibile!`);
+                            const gameName = getGameName(gameStatus);
+                            let notificationMessage = `🎮 ${gameName} è ora disponibile!`;
+                            let notificationType = 'success';
+
+                            // Messaggio speciale per Lupus in Fabula
+                            if (gameStatus === 'lupus_in_fabula') {
+                                notificationMessage = `🐺 Lupus in Fabula è iniziato! Chi sono i lupi tra voi?`;
+                                notificationType = 'lupus';
+                            }
+
+                            showNotification(notificationMessage, notificationType);
                         }
                     }
 
@@ -1170,8 +1328,9 @@
                     const joinBtn = document.getElementById('join-game-btn');
 
                     if (gameStatus) {
-                        statusElement.className = 'game-status active';
+                        statusElement.className = gameStatus === 'lupus_in_fabula' ? 'game-status lupus-active' : 'game-status active';
                         joinBtn.style.display = 'block';
+                        joinBtn.className = gameStatus === 'lupus_in_fabula' ? 'join-game-btn lupus-btn' : 'join-game-btn';
                     } else {
                         statusElement.className = 'game-status waiting';
                         joinBtn.style.display = 'none';
@@ -1182,12 +1341,81 @@
                 });
         }
 
+        // Controlla se è attivo Lupus per mostrare info aggiuntive
+        function checkLupusStatus() {
+            if (currentActiveGame === 'lupus_in_fabula') {
+                fetch('/api/lupus-player-status')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.in_game) {
+                            updateLupusInfo(data);
+                        }
+                    })
+                    .catch(error => {
+                        console.log('Giocatore non in partita Lupus');
+                    });
+            } else {
+                // Nascondi info Lupus se non è attivo
+                document.getElementById('lupus-info').style.display = 'none';
+            }
+        }
+
+        function updateLupusInfo(data) {
+            const lupusInfo = document.getElementById('lupus-info');
+            const statusElement = document.getElementById('game-status');
+            const joinBtn = document.getElementById('join-game-btn');
+
+            lupusInfo.style.display = 'block';
+            lupusData = data;
+
+            if (data.fase_corrente) {
+                const phaseEmojis = {
+                    'night': '🌙',
+                    'day': '☀️',
+                    'voting': '🗳️',
+                    'setup': '⚙️'
+                };
+
+                const phaseNames = {
+                    'night': 'Notte',
+                    'day': 'Giorno',
+                    'voting': 'Votazione',
+                    'setup': 'Preparazione'
+                };
+
+                const emoji = phaseEmojis[data.fase_corrente] || '🐺';
+                const phaseName = phaseNames[data.fase_corrente] || data.fase_corrente;
+                const timeLeft = Math.floor(data.tempo_rimanente / 60);
+                const timeSecs = Math.floor(data.tempo_rimanente % 60);
+
+                // Aggiorna status principale
+                statusElement.innerHTML = `
+                    <h3>${emoji} Lupus in Fabula - ${phaseName}</h3>
+                    <p>Turno ${data.turno} | Tempo rimanente: ${timeLeft}:${timeSecs.toString().padStart(2, '0')}</p>
+                `;
+
+                // Aggiorna info dettagliate Lupus
+                document.getElementById('lupus-role-icon').textContent = data.ruolo.emoji;
+                document.getElementById('lupus-role-name').textContent = data.ruolo.nome;
+                document.getElementById('lupus-role-team').textContent = `Team: ${data.ruolo.team}`;
+                document.getElementById('lupus-phase').textContent = phaseName;
+                document.getElementById('lupus-turn').textContent = data.turno;
+                document.getElementById('lupus-time').textContent = `${timeLeft}:${timeSecs.toString().padStart(2, '0')}`;
+
+                if (data.stato_player === 'vivo') {
+                    joinBtn.textContent = '🐺 Continua Partita';
+                } else {
+                    joinBtn.textContent = '👻 Osserva Partita';
+                }
+            }
+        }
+
         // Aggiorna carte dei giochi
         function updateGameCards(activeGame) {
             const games = [
                 { id: 'quiz', name: 'quiz_personalizzato', url: '/quiz-personalizzato' },
                 { id: 'indovina', name: 'indovina_chi', url: '/indovina-chi' },
-                { id: 'squadre', name: 'quiz_squadre', url: '/quiz-squadre' },
+                { id: 'lupus', name: 'lupus_in_fabula', url: '/lupus-in-fabula' },
                 { id: 'votazione', name: 'votazione_costumi', url: '/votazione-costumi' }
             ];
 
@@ -1199,9 +1427,25 @@
                     // Gioco attivo
                     card.classList.remove('disabled');
                     card.classList.add('active');
+
+                    // Effetto speciale per Lupus in Fabula
+                    if (game.name === 'lupus_in_fabula') {
+                        card.classList.add('lupus-card');
+                        // Aggiungi effetto pulsante per Lupus
+                        const icon = card.querySelector('.game-icon');
+                        icon.style.animation = 'lupusGlow 2s infinite alternate';
+                    }
+
                     btn.classList.remove('disabled');
                     btn.classList.add('active');
-                    btn.textContent = '🎮 Gioca Ora!';
+
+                    if (game.name === 'lupus_in_fabula') {
+                        btn.classList.add('lupus-btn');
+                        btn.textContent = '🐺 Entra nel Branco!';
+                    } else {
+                        btn.textContent = '🎮 Gioca Ora!';
+                    }
+
                     btn.onclick = () => {
                         showNotification('Caricamento gioco...');
                         setTimeout(() => {
@@ -1214,10 +1458,14 @@
                     card.classList.add('disabled');
                     card.classList.remove('active');
                     btn.classList.add('disabled');
-                    btn.classList.remove('active');
+                    btn.classList.remove('active', 'lupus-btn');
                     btn.textContent = 'In attesa...';
                     btn.onclick = null;
                     card.onclick = null;
+
+                    // Rimuovi animazioni speciali
+                    const icon = card.querySelector('.game-icon');
+                    icon.style.animation = '';
                 }
             });
         }
@@ -1228,7 +1476,7 @@
                 const gameUrls = {
                     'quiz_personalizzato': '/quiz-personalizzato',
                     'indovina_chi': '/indovina-chi',
-                    'quiz_squadre': '/quiz-squadre',
+                    'lupus_in_fabula': '/lupus-in-fabula',
                     'votazione_costumi': '/votazione-costumi'
                 };
 
@@ -1373,6 +1621,13 @@
             // Aggiorna stato gioco ogni 5 secondi
             setInterval(loadGameStatus, 5000);
 
+            // Controlla stato Lupus ogni 3 secondi se attivo
+            setInterval(() => {
+                if (currentActiveGame === 'lupus_in_fabula') {
+                    checkLupusStatus();
+                }
+            }, 3000);
+
             // Aggiorna classifica ogni 15 secondi
             setInterval(loadLeaderboard, 15000);
 
@@ -1386,6 +1641,10 @@
             loadPlayerData();
             loadGameStatus();
             loadLeaderboard();
+
+            if (currentActiveGame === 'lupus_in_fabula') {
+                checkLupusStatus();
+            }
         }
 
         // Utility functions
@@ -1393,7 +1652,7 @@
             const names = {
                 'quiz_personalizzato': 'Quiz Personalizzato',
                 'indovina_chi': 'Indovina Chi',
-                'quiz_squadre': 'Quiz a Squadre',
+                'lupus_in_fabula': 'Lupus in Fabula',
                 'votazione_costumi': 'Votazione Costumi'
             };
             return names[gameType] || gameType;

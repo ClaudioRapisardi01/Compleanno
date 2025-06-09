@@ -1641,6 +1641,716 @@ def indovina_leaderboard():
         conn.close()
 
 
+# Aggiungi queste route al tuo app.py
+
+import json
+import random
+from datetime import datetime, timedelta
+
+
+# ========================
+# LUPUS IN FABULA - ROUTES GAMEMASTER
+# ========================
+
+@app.route('/api/gamemaster/lupus-configs')
+def get_lupus_configs():
+    """Ottieni configurazioni predefinite per Lupus"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, nome_config, descrizione, min_giocatori, max_giocatori,
+                   durata_notte_secondi, durata_giorno_secondi, durata_votazione_secondi,
+                   ruoli_configurazione, attiva
+            FROM lupus_configurazioni
+            WHERE attiva = TRUE
+            ORDER BY min_giocatori ASC
+        """)
+        configs = cursor.fetchall()
+
+        configs_list = []
+        for config in configs:
+            configs_list.append({
+                'id': config[0],
+                'nome': config[1],
+                'descrizione': config[2],
+                'min_giocatori': config[3],
+                'max_giocatori': config[4],
+                'durata_notte': config[5],
+                'durata_giorno': config[6],
+                'durata_votazione': config[7],
+                'ruoli': json.loads(config[8]) if config[8] else {},
+                'attiva': bool(config[9])
+            })
+
+        return jsonify(configs_list)
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/lupus-start', methods=['POST'])
+def start_lupus_game():
+    """Avvia una nuova partita di Lupus"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    config_id = data.get('config_id')
+    custom_config = data.get('custom_config')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Ottieni giocatori disponibili
+        cursor.execute("""
+            SELECT id, nome FROM giocatori 
+            WHERE escluso_da_gioco != TRUE OR escluso_da_gioco IS NULL
+            ORDER BY punti_totali DESC
+        """)
+        available_players = cursor.fetchall()
+
+        if len(available_players) < 6:
+            return jsonify({'error': 'Servono almeno 6 giocatori per Lupus'})
+
+        # Ottieni configurazione
+        if config_id:
+            cursor.execute("""
+                SELECT ruoli_configurazione, durata_notte_secondi, 
+                       durata_giorno_secondi, durata_votazione_secondi
+                FROM lupus_configurazioni WHERE id = %s
+            """, (config_id,))
+            config_data = cursor.fetchone()
+            if not config_data:
+                return jsonify({'error': 'Configurazione non trovata'})
+
+            ruoli_config = json.loads(config_data[0])
+            durata_notte = config_data[1]
+            durata_giorno = config_data[2]
+            durata_votazione = config_data[3]
+        else:
+            # Usa configurazione personalizzata
+            ruoli_config = custom_config['ruoli']
+            durata_notte = custom_config.get('durata_notte', 120)
+            durata_giorno = custom_config.get('durata_giorno', 180)
+            durata_votazione = custom_config.get('durata_votazione', 90)
+
+        # Calcola numero totale giocatori necessari
+        total_players_needed = sum(ruoli_config.values())
+        if len(available_players) < total_players_needed:
+            return jsonify({
+                'error': f'Servono {total_players_needed} giocatori, disponibili: {len(available_players)}'
+            })
+
+        # Termina eventuali partite attive
+        cursor.execute("UPDATE lupus_partite SET stato = 'ended' WHERE stato != 'ended'")
+
+        # Crea nuova partita
+        cursor.execute("""
+            INSERT INTO lupus_partite (stato, fase_corrente, durata_fase_secondi)
+            VALUES ('waiting', 'setup', %s)
+        """, (durata_notte,))
+
+        partita_id = cursor.lastrowid
+
+        # Assegna ruoli
+        assigned_roles = assign_lupus_roles(cursor, partita_id, available_players, ruoli_config)
+
+        # Aggiorna stato gioco globale
+        cursor.execute("""
+            INSERT INTO stato_gioco (id, gioco_attivo, messaggio, ultimo_aggiornamento) 
+            VALUES (1, 'lupus_in_fabula', 'Lupus in Fabula sta per iniziare! 🐺', NOW()) 
+            ON DUPLICATE KEY UPDATE 
+            gioco_attivo = 'lupus_in_fabula', 
+            messaggio = 'Lupus in Fabula sta per iniziare! 🐺', 
+            ultimo_aggiornamento = NOW()
+        """)
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'partita_id': partita_id,
+            'giocatori_assegnati': len(assigned_roles),
+            'ruoli_assegnati': assigned_roles
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def assign_lupus_roles(cursor, partita_id, players, ruoli_config):
+    """Assegna ruoli casuali ai giocatori"""
+
+    # Ottieni tutti i ruoli disponibili
+    cursor.execute("SELECT id, nome FROM lupus_ruoli WHERE attivo = TRUE")
+    all_roles = {nome: role_id for role_id, nome in cursor.fetchall()}
+
+    # Crea lista di ruoli da assegnare
+    roles_to_assign = []
+    for role_name, count in ruoli_config.items():
+        if role_name in all_roles:
+            roles_to_assign.extend([all_roles[role_name]] * count)
+
+    # Mescola giocatori e ruoli
+    players_list = list(players)
+    random.shuffle(players_list)
+    random.shuffle(roles_to_assign)
+
+    # Assegna ruoli
+    assigned = []
+    for i, (player_id, player_name) in enumerate(players_list[:len(roles_to_assign)]):
+        role_id = roles_to_assign[i]
+
+        cursor.execute("""
+            INSERT INTO lupus_partecipazioni (partita_id, giocatore_id, ruolo_id)
+            VALUES (%s, %s, %s)
+        """, (partita_id, player_id, role_id))
+
+        # Ottieni nome ruolo per risposta
+        cursor.execute("SELECT nome FROM lupus_ruoli WHERE id = %s", (role_id,))
+        role_name = cursor.fetchone()[0]
+
+        assigned.append({
+            'player_id': player_id,
+            'player_name': player_name,
+            'role_name': role_name
+        })
+
+    return assigned
+
+
+@app.route('/api/gamemaster/lupus-phase', methods=['POST'])
+def change_lupus_phase():
+    """Cambia fase della partita Lupus"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    new_phase = data.get('phase')  # 'night', 'day', 'voting', 'ended'
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Trova partita attiva
+        cursor.execute("""
+            SELECT id, fase_corrente, turno_numero 
+            FROM lupus_partite 
+            WHERE stato != 'ended' 
+            ORDER BY id DESC LIMIT 1
+        """)
+
+        partita = cursor.fetchone()
+        if not partita:
+            return jsonify({'error': 'Nessuna partita attiva'})
+
+        partita_id, current_phase, turno = partita
+
+        # Esegui azioni di fine fase se necessario
+        if current_phase == 'night':
+            process_night_actions(cursor, partita_id, turno)
+        elif current_phase == 'voting':
+            process_voting_results(cursor, partita_id, turno)
+
+        # Determina durata nuova fase
+        phase_durations = {
+            'night': 120,
+            'day': 180,
+            'voting': 90
+        }
+        duration = phase_durations.get(new_phase, 60)
+
+        # Incrementa turno se si passa da voting a night
+        if current_phase == 'voting' and new_phase == 'night':
+            turno += 1
+
+        # Aggiorna partita
+        cursor.execute("""
+            UPDATE lupus_partite 
+            SET fase_corrente = %s, tempo_fase_inizio = NOW(), 
+                durata_fase_secondi = %s, turno_numero = %s
+            WHERE id = %s
+        """, (new_phase, duration, turno, partita_id))
+
+        # Log evento
+        cursor.execute("""
+            INSERT INTO lupus_eventi (partita_id, turno, fase, tipo_evento, descrizione)
+            VALUES (%s, %s, %s, 'cambio_fase', %s)
+        """, (partita_id, turno, new_phase, f'Cambiata fase da {current_phase} a {new_phase}'))
+
+        conn.commit()
+
+        return jsonify({'success': True, 'new_phase': new_phase, 'turno': turno})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def process_night_actions(cursor, partita_id, turno):
+    """Processa tutte le azioni notturne"""
+
+    # Ottieni tutte le azioni della notte in ordine di priorità
+    cursor.execute("""
+        SELECT la.giocatore_id, la.tipo_azione, la.target_giocatore_id, lr.priorita_azione
+        FROM lupus_azioni la
+        JOIN lupus_partecipazioni lp ON la.giocatore_id = lp.giocatore_id
+        JOIN lupus_ruoli lr ON lp.ruolo_id = lr.id
+        WHERE la.partita_id = %s AND la.turno = %s AND la.fase = 'notte'
+        ORDER BY lr.priorita_azione DESC
+    """, (partita_id, turno))
+
+    actions = cursor.fetchall()
+
+    protected_players = set()
+    killed_players = []
+    investigation_results = []
+
+    for giocatore_id, tipo_azione, target_id, priorita in actions:
+        if tipo_azione == 'protect':
+            protected_players.add(target_id)
+        elif tipo_azione == 'kill' and target_id not in protected_players:
+            killed_players.append(target_id)
+        elif tipo_azione == 'investigate':
+            # Ottieni ruolo del target
+            cursor.execute("""
+                SELECT lr.team FROM lupus_partecipazioni lp
+                JOIN lupus_ruoli lr ON lp.ruolo_id = lr.id
+                WHERE lp.partita_id = %s AND lp.giocatore_id = %s
+            """, (partita_id, target_id))
+            target_team = cursor.fetchone()[0]
+            investigation_results.append((giocatore_id, target_id, target_team))
+
+    # Applica morti
+    for player_id in set(killed_players):  # Remove duplicates
+        cursor.execute("""
+            UPDATE lupus_partecipazioni 
+            SET stato = 'morto', morte_turno = %s, morte_fase = 'notte'
+            WHERE partita_id = %s AND giocatore_id = %s
+        """, (turno, partita_id, player_id))
+
+        # Log morte
+        cursor.execute("""
+            INSERT INTO lupus_eventi (partita_id, turno, fase, tipo_evento, descrizione, giocatori_coinvolti)
+            VALUES (%s, %s, 'notte', 'morte', 'Giocatore eliminato durante la notte', %s)
+        """, (partita_id, turno, json.dumps([player_id])))
+
+    # Salva risultati investigazioni
+    for investigator_id, target_id, result in investigation_results:
+        cursor.execute("""
+            UPDATE lupus_azioni 
+            SET risultato = %s, successo = TRUE
+            WHERE partita_id = %s AND turno = %s AND giocatore_id = %s AND tipo_azione = 'investigate'
+        """, (result, partita_id, turno, investigator_id))
+
+
+def process_voting_results(cursor, partita_id, turno):
+    """Processa risultati della votazione diurna"""
+
+    # Conta voti con peso
+    cursor.execute("""
+        SELECT lv.votato_giocatore_id, SUM(lv.peso_voto) as voti_totali
+        FROM lupus_votazioni lv
+        WHERE lv.partita_id = %s AND lv.turno = %s
+        GROUP BY lv.votato_giocatore_id
+        ORDER BY voti_totali DESC
+        LIMIT 1
+    """, (partita_id, turno))
+
+    result = cursor.fetchone()
+    if result:
+        eliminated_player_id, voti = result
+
+        # Elimina giocatore
+        cursor.execute("""
+            UPDATE lupus_partecipazioni 
+            SET stato = 'eliminato', morte_turno = %s, morte_fase = 'votazione'
+            WHERE partita_id = %s AND giocatore_id = %s
+        """, (turno, partita_id, eliminated_player_id))
+
+        # Log eliminazione
+        cursor.execute("""
+            INSERT INTO lupus_eventi (partita_id, turno, fase, tipo_evento, descrizione, giocatori_coinvolti)
+            VALUES (%s, %s, 'votazione', 'eliminazione', %s, %s)
+        """, (partita_id, turno, f'Giocatore eliminato con {voti} voti', json.dumps([eliminated_player_id])))
+
+
+@app.route('/api/gamemaster/lupus-status')
+def get_lupus_game_status():
+    """Ottieni stato attuale partita Lupus per gamemaster"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Trova partita attiva
+        cursor.execute("""
+            SELECT id, stato, fase_corrente, tempo_fase_inizio, durata_fase_secondi, 
+                   turno_numero, vincitore
+            FROM lupus_partite 
+            WHERE stato != 'ended' 
+            ORDER BY id DESC LIMIT 1
+        """)
+
+        partita = cursor.fetchone()
+        if not partita:
+            return jsonify({'game_active': False})
+
+        partita_id, stato, fase, tempo_inizio, durata, turno, vincitore = partita
+
+        # Calcola tempo rimanente
+        time_elapsed = (datetime.now() - tempo_inizio).total_seconds()
+        time_remaining = max(0, durata - time_elapsed)
+
+        # Ottieni partecipanti
+        cursor.execute("""
+            SELECT g.id, g.nome, g.foto_profilo, lr.nome as ruolo, lr.emoji, 
+                   lr.team, lp.stato, lp.morte_turno
+            FROM lupus_partecipazioni lp
+            JOIN giocatori g ON lp.giocatore_id = g.id
+            JOIN lupus_ruoli lr ON lp.ruolo_id = lr.id
+            WHERE lp.partita_id = %s
+            ORDER BY lp.stato, g.nome
+        """, (partita_id,))
+
+        participants = []
+        for p in cursor.fetchall():
+            participants.append({
+                'id': p[0],
+                'nome': p[1],
+                'foto_profilo': p[2],
+                'ruolo': p[3],
+                'emoji': p[4],
+                'team': p[5],
+                'stato': p[6],
+                'morte_turno': p[7]
+            })
+
+        # Conta vivi per team
+        vivi_lupi = len([p for p in participants if p['team'] == 'lupi' and p['stato'] == 'vivo'])
+        vivi_cittadini = len([p for p in participants if p['team'] == 'cittadini' and p['stato'] == 'vivo'])
+
+        return jsonify({
+            'game_active': True,
+            'partita_id': partita_id,
+            'fase_corrente': fase,
+            'turno': turno,
+            'tempo_rimanente': int(time_remaining),
+            'partecipanti': participants,
+            'vivi_lupi': vivi_lupi,
+            'vivi_cittadini': vivi_cittadini,
+            'vincitore': vincitore
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# ========================
+# LUPUS IN FABULA - ROUTES GIOCATORI
+# ========================
+
+@app.route('/lupus-in-fabula')
+def lupus_game_page():
+    """Pagina del gioco Lupus in Fabula"""
+    if 'player_id' not in session:
+        return redirect(url_for('index'))
+
+    # Verifica che il gioco sia attivo
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT gioco_attivo FROM stato_gioco WHERE id = 1")
+    stato = cursor.fetchone()
+
+    if not stato or stato[0] != 'lupus_in_fabula':
+        cursor.close()
+        conn.close()
+        return redirect(url_for('dashboard'))
+
+    cursor.close()
+    conn.close()
+    return render_template('lupus_in_fabula.html')
+
+
+@app.route('/api/lupus-player-status')
+def get_lupus_player_status():
+    """Ottieni stato del giocatore nella partita Lupus"""
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'})
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Trova partita attiva e partecipazione del giocatore
+        cursor.execute("""
+            SELECT lpt.id, lpt.fase_corrente, lpt.tempo_fase_inizio, lpt.durata_fase_secondi,
+                   lpt.turno_numero, lp.ruolo_id, lp.stato, lr.nome as ruolo_nome, 
+                   lr.emoji, lr.team, lr.descrizione, lr.azione_notturna, lr.azione_diurna
+            FROM lupus_partite lpt
+            JOIN lupus_partecipazioni lp ON lpt.id = lp.partita_id
+            JOIN lupus_ruoli lr ON lp.ruolo_id = lr.id
+            WHERE lpt.stato != 'ended' AND lp.giocatore_id = %s
+            ORDER BY lpt.id DESC LIMIT 1
+        """, (session['player_id'],))
+
+        result = cursor.fetchone()
+        if not result:
+            return jsonify({'in_game': False, 'message': 'Non sei in una partita attiva'})
+
+        (partita_id, fase, tempo_inizio, durata, turno, ruolo_id, stato_player,
+         ruolo_nome, emoji, team, descrizione, azione_notturna, azione_diurna) = result
+
+        # Calcola tempo rimanente
+        time_elapsed = (datetime.now() - tempo_inizio).total_seconds()
+        time_remaining = max(0, durata - time_elapsed)
+
+        # Ottieni lista altri giocatori (info base)
+        cursor.execute("""
+            SELECT g.id, g.nome, g.foto_profilo, lp.stato
+            FROM lupus_partecipazioni lp
+            JOIN giocatori g ON lp.giocatore_id = g.id
+            WHERE lp.partita_id = %s AND lp.giocatore_id != %s
+            ORDER BY lp.stato, g.nome
+        """, (partita_id, session['player_id']))
+
+        altri_giocatori = []
+        for p in cursor.fetchall():
+            altri_giocatori.append({
+                'id': p[0],
+                'nome': p[1],
+                'foto_profilo': p[2],
+                'stato': p[3]
+            })
+
+        # Se è un lupo, ottieni lista altri lupi
+        altri_lupi = []
+        if team == 'lupi':
+            cursor.execute("""
+                SELECT g.id, g.nome, g.foto_profilo
+                FROM lupus_partecipazioni lp
+                JOIN giocatori g ON lp.giocatore_id = g.id
+                JOIN lupus_ruoli lr ON lp.ruolo_id = lr.id
+                WHERE lp.partita_id = %s AND lr.team = 'lupi' AND lp.giocatore_id != %s
+                AND lp.stato = 'vivo'
+            """, (partita_id, session['player_id']))
+
+            for lupo in cursor.fetchall():
+                altri_lupi.append({
+                    'id': lupo[0],
+                    'nome': lupo[1],
+                    'foto_profilo': lupo[2]
+                })
+
+        # Controlla se ha già fatto azione in questo turno
+        ha_fatto_azione = False
+        if (fase == 'night' and azione_notturna) or (fase == 'day' and azione_diurna):
+            cursor.execute("""
+                SELECT id FROM lupus_azioni
+                WHERE partita_id = %s AND turno = %s AND giocatore_id = %s
+                AND fase = %s
+            """, (partita_id, turno, session['player_id'], fase))
+            ha_fatto_azione = cursor.fetchone() is not None
+
+        # Controlla se ha già votato
+        ha_votato = False
+        if fase == 'voting':
+            cursor.execute("""
+                SELECT id FROM lupus_votazioni
+                WHERE partita_id = %s AND turno = %s AND votante_giocatore_id = %s
+            """, (partita_id, turno, session['player_id']))
+            ha_votato = cursor.fetchone() is not None
+
+        return jsonify({
+            'in_game': True,
+            'partita_id': partita_id,
+            'fase_corrente': fase,
+            'turno': turno,
+            'tempo_rimanente': int(time_remaining),
+            'ruolo': {
+                'id': ruolo_id,
+                'nome': ruolo_nome,
+                'emoji': emoji,
+                'team': team,
+                'descrizione': descrizione,
+                'azione_notturna': bool(azione_notturna),
+                'azione_diurna': bool(azione_diurna)
+            },
+            'stato_player': stato_player,
+            'altri_giocatori': altri_giocatori,
+            'altri_lupi': altri_lupi,
+            'ha_fatto_azione': ha_fatto_azione,
+            'ha_votato': ha_votato
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/lupus-action', methods=['POST'])
+def submit_lupus_action():
+    """Invia azione notturna/diurna"""
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'})
+
+    data = request.get_json()
+    action_type = data.get('action_type')  # 'kill', 'protect', 'investigate'
+    target_id = data.get('target_id')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Trova partita e verifica partecipazione
+        cursor.execute("""
+            SELECT lpt.id, lpt.fase_corrente, lpt.turno_numero, lr.nome, lr.team
+            FROM lupus_partite lpt
+            JOIN lupus_partecipazioni lp ON lpt.id = lp.partita_id
+            JOIN lupus_ruoli lr ON lp.ruolo_id = lr.id
+            WHERE lpt.stato != 'ended' AND lp.giocatore_id = %s AND lp.stato = 'vivo'
+            ORDER BY lpt.id DESC LIMIT 1
+        """, (session['player_id'],))
+
+        result = cursor.fetchone()
+        if not result:
+            return jsonify({'error': 'Non sei in una partita attiva o sei morto'})
+
+        partita_id, fase, turno, ruolo_nome, team = result
+
+        # Verifica che l'azione sia appropriata per la fase
+        if fase not in ['night', 'day']:
+            return jsonify({'error': 'Non puoi fare azioni in questa fase'})
+
+        # Verifica autorizzazioni per tipo azione
+        action_permissions = {
+            'kill': lambda: team == 'lupi' and fase == 'night',
+            'protect': lambda: ruolo_nome == 'Guardia' and fase == 'night',
+            'investigate': lambda: ruolo_nome == 'Veggente' and fase == 'night'
+        }
+
+        if action_type not in action_permissions or not action_permissions[action_type]():
+            return jsonify({'error': 'Non puoi fare questa azione'})
+
+        # Verifica che non abbia già fatto un'azione questo turno
+        cursor.execute("""
+            SELECT id FROM lupus_azioni
+            WHERE partita_id = %s AND turno = %s AND giocatore_id = %s AND fase = %s
+        """, (partita_id, turno, session['player_id'], fase))
+
+        if cursor.fetchone():
+            return jsonify({'error': 'Hai già fatto un\'azione questo turno'})
+
+        # Verifica che il target sia valido
+        cursor.execute("""
+            SELECT stato FROM lupus_partecipazioni
+            WHERE partita_id = %s AND giocatore_id = %s
+        """, (partita_id, target_id))
+
+        target_status = cursor.fetchone()
+        if not target_status or target_status[0] != 'vivo':
+            return jsonify({'error': 'Target non valido'})
+
+        # Salva azione
+        cursor.execute("""
+            INSERT INTO lupus_azioni (partita_id, turno, fase, giocatore_id, tipo_azione, target_giocatore_id)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (partita_id, turno, fase, session['player_id'], action_type, target_id))
+
+        conn.commit()
+
+        return jsonify({'success': True, 'message': 'Azione registrata'})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/lupus-vote', methods=['POST'])
+def submit_lupus_vote():
+    """Invia voto per eliminazione diurna"""
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'})
+
+    data = request.get_json()
+    target_id = data.get('target_id')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Trova partita e verifica stato
+        cursor.execute("""
+            SELECT lpt.id, lpt.fase_corrente, lpt.turno_numero, lr.nome
+            FROM lupus_partite lpt
+            JOIN lupus_partecipazioni lp ON lpt.id = lp.partita_id
+            JOIN lupus_ruoli lr ON lp.ruolo_id = lr.id
+            WHERE lpt.stato != 'ended' AND lp.giocatore_id = %s AND lp.stato = 'vivo'
+            ORDER BY lpt.id DESC LIMIT 1
+        """, (session['player_id'],))
+
+        result = cursor.fetchone()
+        if not result:
+            return jsonify({'error': 'Non puoi votare'})
+
+        partita_id, fase, turno, ruolo_nome = result
+
+        if fase != 'voting':
+            return jsonify({'error': 'Non è il momento di votare'})
+
+        # Verifica che non abbia già votato
+        cursor.execute("""
+            SELECT id FROM lupus_votazioni
+            WHERE partita_id = %s AND turno = %s AND votante_giocatore_id = %s
+        """, (partita_id, turno, session['player_id']))
+
+        if cursor.fetchone():
+            return jsonify({'error': 'Hai già votato'})
+
+        # Determina peso del voto
+        peso_voto = 2 if ruolo_nome in ['Sindaco', 'Festeggiato'] else 1
+
+        # Salva voto
+        cursor.execute("""
+            INSERT INTO lupus_votazioni (partita_id, turno, votante_giocatore_id, votato_giocatore_id, peso_voto)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (partita_id, turno, session['player_id'], target_id, peso_voto))
+
+        conn.commit()
+
+        return jsonify({'success': True, 'peso_voto': peso_voto})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+
 
 
 if __name__ == '__main__':
