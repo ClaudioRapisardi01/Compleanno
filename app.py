@@ -2350,6 +2350,453 @@ def submit_lupus_vote():
         conn.close()
 
 
+# Aggiungi queste funzioni al tuo app.py per il sistema Lupus migliorato
+
+import random
+import json
+from datetime import datetime, timedelta
+
+
+def get_optimal_lupus_config(num_real_players):
+    """Determina la configurazione ottimale in base al numero di giocatori reali"""
+
+    # Se ci sono abbastanza giocatori reali, usa solo quelli
+    if num_real_players >= 6:
+        # Trova la configurazione più adatta
+        configs = {
+            (6, 7): {"Lupo": 1, "Veggente": 1, "Guardia": 1, "Cittadino": 4},
+            (8, 10): {"Lupo": 2, "Veggente": 1, "Guardia": 1, "Sindaco": 1, "Cittadino": 5},
+            (11, 16): {"Lupo": 3, "Lupo Alpha": 1, "Veggente": 1, "Guardia": 1, "Medico": 1, "Sindaco": 1,
+                       "Cacciatore": 1, "Cittadino": 6},
+            (17, 25): {"Lupo": 4, "Lupo Alpha": 1, "Veggente": 1, "Guardia": 1, "Medico": 1, "Sindaco": 1,
+                       "Cacciatore": 1, "Strega": 1, "Cittadino": 14},
+            (26, 40): {"Lupo": 6, "Lupo Alpha": 1, "Veggente": 2, "Guardia": 2, "Medico": 1, "Sindaco": 1,
+                       "Cacciatore": 1, "Strega": 1, "Cupido": 1, "Cittadino": 24}
+        }
+
+        for (min_p, max_p), config in configs.items():
+            if min_p <= num_real_players <= max_p:
+                # Aggiusta la configurazione per il numero esatto
+                total_roles = sum(config.values())
+                if total_roles > num_real_players:
+                    # Riduci cittadini
+                    config["Cittadino"] = max(1, config["Cittadino"] - (total_roles - num_real_players))
+                elif total_roles < num_real_players:
+                    # Aggiungi cittadini
+                    config["Cittadino"] += (num_real_players - total_roles)
+
+                return config, 0  # 0 bot necessari
+
+    # Se ci sono pochi giocatori reali, aggiungi bot per arrivare a 6-8
+    else:
+        target_players = max(6, num_real_players + 2)  # Almeno 6, o +2 rispetto ai reali
+        bots_needed = target_players - num_real_players
+
+        config = {"Lupo": 1, "Veggente": 1, "Guardia": 1, "Cittadino": target_players - 3}
+        if target_players >= 8:
+            config["Lupo"] = 2
+            config["Cittadino"] = target_players - 4
+
+        return config, bots_needed
+
+
+def create_bot_players(num_bots_needed):
+    """Crea giocatori bot temporanei per la partita"""
+
+    bot_names = [
+        "🤖 Bot Marco", "🤖 Bot Laura", "🤖 Bot Giuseppe", "🤖 Bot Anna",
+        "🤖 Bot Francesco", "🤖 Bot Maria", "🤖 Bot Luigi", "🤖 Bot Sara",
+        "🤖 Bot Antonio", "🤖 Bot Elena", "🤖 Bot Roberto", "🤖 Bot Giulia",
+        "🤖 Bot Alessandro", "🤖 Bot Chiara", "🤖 Bot Matteo", "🤖 Bot Federica"
+    ]
+
+    bot_players = []
+    for i in range(min(num_bots_needed, len(bot_names))):
+        bot_players.append({
+            'id': f'bot_{i}',  # ID temporaneo per bot
+            'nome': bot_names[i],
+            'is_bot': True,
+            'personalita': random.choice(['aggressivo', 'difensivo', 'casuale', 'intelligente'])
+        })
+
+    return bot_players
+
+
+def simulate_bot_action(bot_player, game_state, action_type):
+    """Simula l'azione di un bot in base alla sua personalità"""
+
+    personalita = bot_player.get('personalita', 'casuale')
+    alive_players = [p for p in game_state['players'] if p['stato'] == 'vivo' and p['id'] != bot_player['id']]
+
+    if not alive_players:
+        return None
+
+    if action_type == 'vote':
+        # Logica di voto del bot
+        if personalita == 'intelligente':
+            # Vota il giocatore più sospetto (casualità pesata)
+            return random.choices(alive_players, weights=[0.3 if p.get('is_bot') else 0.7 for p in alive_players])[0][
+                'id']
+        elif personalita == 'aggressivo':
+            # Vota sempre giocatori umani se possibile
+            human_players = [p for p in alive_players if not p.get('is_bot')]
+            return random.choice(human_players if human_players else alive_players)['id']
+        elif personalita == 'difensivo':
+            # Vota più cautamente, spesso si astiene o vota bot
+            bot_players = [p for p in alive_players if p.get('is_bot')]
+            return random.choice(bot_players if bot_players else alive_players)['id']
+        else:  # casuale
+            return random.choice(alive_players)['id']
+
+    elif action_type == 'kill':  # Per lupi bot
+        if personalita == 'intelligente':
+            # Preferisce giocatori umani con ruoli speciali
+            human_players = [p for p in alive_players if not p.get('is_bot')]
+            return random.choice(human_players if human_players else alive_players)['id']
+        else:
+            return random.choice(alive_players)['id']
+
+    elif action_type == 'protect':  # Per guardia bot
+        if personalita == 'intelligente':
+            # Protegge giocatori importanti (preferibilmente umani)
+            human_players = [p for p in alive_players if not p.get('is_bot')]
+            return random.choice(human_players if human_players else alive_players)['id']
+        else:
+            return random.choice(alive_players)['id']
+
+    elif action_type == 'investigate':  # Per veggente bot
+        # Investiga giocatori sospetti
+        return random.choice(alive_players)['id']
+
+    return None
+
+
+# Aggiorna la funzione assign_lupus_roles per gestire i bot
+def assign_lupus_roles_with_bots(cursor, partita_id, real_players, bot_players, ruoli_config):
+    """Assegna ruoli a giocatori reali e bot"""
+
+    # Ottieni tutti i ruoli disponibili
+    cursor.execute("SELECT id, nome FROM lupus_ruoli WHERE attivo = TRUE")
+    all_roles = {nome: role_id for role_id, nome in cursor.fetchall()}
+
+    # Crea lista di ruoli da assegnare
+    roles_to_assign = []
+    for role_name, count in ruoli_config.items():
+        if role_name in all_roles:
+            roles_to_assign.extend([all_roles[role_name]] * count)
+
+    # Combina giocatori reali e bot
+    all_players = list(real_players) + bot_players
+
+    # Mescola giocatori e ruoli
+    random.shuffle(all_players)
+    random.shuffle(roles_to_assign)
+
+    # Assegna ruoli
+    assigned = []
+    for i, player in enumerate(all_players[:len(roles_to_assign)]):
+        role_id = roles_to_assign[i]
+
+        if isinstance(player, dict) and player.get('is_bot'):
+            # Per bot, crea un giocatore temporaneo
+            cursor.execute("""
+                INSERT INTO giocatori (nome, squadra, personaggio_id, punti_totali, escluso_da_gioco)
+                VALUES (%s, 'Rossi', 1, 0, FALSE)
+            """, (player['nome'],))
+
+            bot_player_id = cursor.lastrowid
+
+            cursor.execute("""
+                INSERT INTO lupus_partecipazioni (partita_id, giocatore_id, ruolo_id, simulato)
+                VALUES (%s, %s, %s, TRUE)
+            """, (partita_id, bot_player_id, role_id))
+
+            # Salva info bot per simulazioni
+            cursor.execute("""
+                INSERT INTO lupus_bots (nome, personalita, attivo) 
+                VALUES (%s, %s, TRUE)
+                ON DUPLICATE KEY UPDATE personalita = %s
+            """, (player['nome'], player['personalita'], player['personalita']))
+
+        else:
+            # Giocatore reale
+            player_id = player[0] if isinstance(player, tuple) else player
+            cursor.execute("""
+                INSERT INTO lupus_partecipazioni (partita_id, giocatore_id, ruolo_id, simulato)
+                VALUES (%s, %s, %s, FALSE)
+            """, (partita_id, player_id, role_id))
+
+        # Ottieni nome ruolo per risposta
+        cursor.execute("SELECT nome FROM lupus_ruoli WHERE id = %s", (role_id,))
+        role_name = cursor.fetchone()[0]
+
+        player_name = player['nome'] if isinstance(player, dict) else player[1]
+        assigned.append({
+            'player_name': player_name,
+            'role_name': role_name,
+            'is_bot': isinstance(player, dict) and player.get('is_bot', False)
+        })
+
+    return assigned
+
+
+# Funzione per processare azioni bot automaticamente
+def process_bot_actions_for_phase(cursor, partita_id, turno, fase):
+    """Processa automaticamente le azioni dei bot per una fase"""
+
+    # Ottieni bot attivi nella partita
+    cursor.execute("""
+        SELECT lp.giocatore_id, g.nome, lr.nome as ruolo, lr.team, lr.azione_notturna, lr.azione_diurna
+        FROM lupus_partecipazioni lp
+        JOIN giocatori g ON lp.giocatore_id = g.id
+        JOIN lupus_ruoli lr ON lp.ruolo_id = lr.id
+        WHERE lp.partita_id = %s AND lp.simulato = TRUE AND lp.stato = 'vivo'
+    """, (partita_id,))
+
+    bots = cursor.fetchall()
+
+    # Ottieni stato del gioco per le decisioni bot
+    cursor.execute("""
+        SELECT lp.giocatore_id, g.nome, lp.stato
+        FROM lupus_partecipazioni lp
+        JOIN giocatori g ON lp.giocatore_id = g.id
+        WHERE lp.partita_id = %s
+    """, (partita_id,))
+
+    all_players = [{'id': p[0], 'nome': p[1], 'stato': p[2], 'is_bot': False} for p in cursor.fetchall()]
+
+    # Aggiorna info sui bot
+    for player in all_players:
+        for bot in bots:
+            if player['id'] == bot[0]:
+                player['is_bot'] = True
+                break
+
+    game_state = {'players': all_players}
+
+    for bot_id, bot_name, ruolo, team, azione_notturna, azione_diurna in bots:
+
+        # Determina che azione fare
+        action_to_take = None
+
+        if fase == 'night' and azione_notturna:
+            if team == 'lupi':
+                action_to_take = 'kill'
+            elif ruolo == 'Veggente':
+                action_to_take = 'investigate'
+            elif ruolo == 'Guardia':
+                action_to_take = 'protect'
+
+        elif fase == 'voting':
+            action_to_take = 'vote'
+
+        if action_to_take:
+            # Simula l'azione
+            bot_player = {'id': bot_id, 'nome': bot_name, 'personalita': 'casuale'}  # Default personalità
+
+            # Ottieni personalità del bot se disponibile
+            cursor.execute("SELECT personalita FROM lupus_bots WHERE nome = %s", (bot_name,))
+            personalita_result = cursor.fetchone()
+            if personalita_result:
+                bot_player['personalita'] = personalita_result[0]
+
+            target_id = simulate_bot_action(bot_player, game_state, action_to_take)
+
+            if target_id and action_to_take == 'vote':
+                # Salva voto bot
+                cursor.execute("""
+                    INSERT IGNORE INTO lupus_votazioni (partita_id, turno, votante_giocatore_id, votato_giocatore_id, peso_voto)
+                    VALUES (%s, %s, %s, %s, 1)
+                """, (partita_id, turno, bot_id, target_id))
+
+            elif target_id and action_to_take in ['kill', 'investigate', 'protect']:
+                # Salva azione notturna bot
+                cursor.execute("""
+                    INSERT IGNORE INTO lupus_azioni (partita_id, turno, fase, giocatore_id, tipo_azione, target_giocatore_id)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (partita_id, turno, fase, bot_id, action_to_take, target_id))
+
+
+# Aggiorna la route per start lupus game
+@app.route('/api/gamemaster/lupus-start-flexible', methods=['POST'])
+def start_flexible_lupus_game():
+    """Avvia Lupus con supporto per bot e gruppi di qualsiasi dimensione"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    use_bots = data.get('use_bots', True)  # Default: usa bot se necessario
+    force_config = data.get('force_config')  # Configurazione forzata
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Ottieni giocatori reali disponibili
+        cursor.execute("""
+            SELECT id, nome FROM giocatori 
+            WHERE (escluso_da_gioco != TRUE OR escluso_da_gioco IS NULL)
+            ORDER BY punti_totali DESC
+        """)
+        real_players = cursor.fetchall()
+        num_real_players = len(real_players)
+
+        if num_real_players < 3:
+            return jsonify({'error': 'Servono almeno 3 giocatori per Lupus (anche con bot)'})
+
+        # Determina configurazione
+        if force_config:
+            ruoli_config = force_config
+            bots_needed = 0
+        else:
+            ruoli_config, bots_needed = get_optimal_lupus_config(num_real_players)
+            if not use_bots:
+                bots_needed = 0
+
+        # Crea bot se necessario
+        bot_players = []
+        if bots_needed > 0:
+            bot_players = create_bot_players(bots_needed)
+
+        total_players = num_real_players + len(bot_players)
+
+        # Termina eventuali partite attive
+        cursor.execute("UPDATE lupus_partite SET stato = 'ended' WHERE stato != 'ended'")
+
+        # Crea nuova partita
+        cursor.execute("""
+            INSERT INTO lupus_partite (stato, fase_corrente, durata_fase_secondi)
+            VALUES ('waiting', 'setup', 120)
+        """)
+        partita_id = cursor.lastrowid
+
+        # Assegna ruoli
+        assigned_roles = assign_lupus_roles_with_bots(cursor, partita_id, real_players, bot_players, ruoli_config)
+
+        # Aggiorna stato gioco globale
+        cursor.execute("""
+            INSERT INTO stato_gioco (id, gioco_attivo, messaggio, ultimo_aggiornamento) 
+            VALUES (1, 'lupus_in_fabula', 'Lupus in Fabula sta per iniziare! 🐺', NOW()) 
+            ON DUPLICATE KEY UPDATE 
+            gioco_attivo = 'lupus_in_fabula', 
+            messaggio = 'Lupus in Fabula sta per iniziare! 🐺', 
+            ultimo_aggiornamento = NOW()
+        """)
+
+        # Log partita iniziata
+        cursor.execute("""
+            INSERT INTO lupus_eventi (partita_id, turno, fase, tipo_evento, descrizione)
+            VALUES (%s, 1, 'setup', 'partita_iniziata', %s)
+        """, (partita_id, f'Partita iniziata con {num_real_players} giocatori reali e {len(bot_players)} bot'))
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'partita_id': partita_id,
+            'giocatori_reali': num_real_players,
+            'bot_aggiunti': len(bot_players),
+            'giocatori_totali': total_players,
+            'ruoli_assegnati': assigned_roles,
+            'configurazione': ruoli_config
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# Funzione per cleanup bot alla fine della partita
+def cleanup_bot_players(cursor, partita_id):
+    """Rimuove i giocatori bot temporanei alla fine della partita"""
+
+    # Trova giocatori bot di questa partita
+    cursor.execute("""
+        SELECT g.id FROM giocatori g
+        JOIN lupus_partecipazioni lp ON g.id = lp.giocatore_id
+        WHERE lp.partita_id = %s AND lp.simulato = TRUE AND g.nome LIKE '🤖 Bot%'
+    """, (partita_id,))
+
+    bot_ids = [row[0] for row in cursor.fetchall()]
+
+    # Rimuovi bot giocatori (le partecipazioni verranno eliminate per CASCADE)
+    for bot_id in bot_ids:
+        cursor.execute("DELETE FROM giocatori WHERE id = %s", (bot_id,))
+
+
+# Aggiungi route per gestione automatica fasi con bot
+@app.route('/api/gamemaster/lupus-auto-phase', methods=['POST'])
+def auto_manage_lupus_phase():
+    """Gestione automatica delle fasi con azioni bot"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    new_phase = data.get('phase')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Trova partita attiva
+        cursor.execute("""
+            SELECT id, fase_corrente, turno_numero 
+            FROM lupus_partite 
+            WHERE stato != 'ended' 
+            ORDER BY id DESC LIMIT 1
+        """)
+
+        partita = cursor.fetchone()
+        if not partita:
+            return jsonify({'error': 'Nessuna partita attiva'})
+
+        partita_id, current_phase, turno = partita
+
+        # Processa azioni bot per la fase corrente prima di cambiarla
+        if current_phase in ['night', 'voting']:
+            process_bot_actions_for_phase(cursor, partita_id, turno, current_phase)
+
+        # Processa risultati fase corrente
+        if current_phase == 'night':
+            process_night_actions(cursor, partita_id, turno)
+        elif current_phase == 'voting':
+            process_voting_results(cursor, partita_id, turno)
+
+        # Cambia fase (usa la logica esistente)
+        phase_durations = {'night': 120, 'day': 180, 'voting': 90}
+        duration = phase_durations.get(new_phase, 60)
+
+        if current_phase == 'voting' and new_phase == 'night':
+            turno += 1
+
+        cursor.execute("""
+            UPDATE lupus_partite 
+            SET fase_corrente = %s, tempo_fase_inizio = NOW(), 
+                durata_fase_secondi = %s, turno_numero = %s
+            WHERE id = %s
+        """, (new_phase, duration, turno, partita_id))
+
+        # Se la partita finisce, cleanup bot
+        if new_phase == 'ended':
+            cleanup_bot_players(cursor, partita_id)
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'new_phase': new_phase,
+            'turno': turno,
+            'bot_actions_processed': True
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
 
 
 
