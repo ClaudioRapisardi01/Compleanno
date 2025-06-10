@@ -2798,6 +2798,622 @@ def auto_manage_lupus_phase():
         conn.close()
 
 
+# Aggiungi queste route al file app.py esistente
+
+# Route per la pagina dedicata del gamemaster Lupus
+@app.route('/gamemaster/lupus')
+def lupus_gamemaster_page():
+    """Pagina dedicata gestione Lupus in Fabula"""
+    if not session.get('is_gamemaster'):
+        return redirect(url_for('gamemaster'))
+
+    return render_template('lupus_gamemaster.html')
+
+
+# API per azioni di un turno specifico
+@app.route('/api/gamemaster/lupus-actions/<int:partita_id>/<int:turno>')
+def get_lupus_actions(partita_id, turno):
+    """Ottieni tutte le azioni di un turno specifico"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT la.tipo_azione, la.risultato, la.successo, la.timestamp,
+                   g1.nome as giocatore_nome, lr1.nome as ruolo,
+                   g2.nome as target_nome
+            FROM lupus_azioni la
+            JOIN lupus_partecipazioni lp1 ON la.giocatore_id = lp1.giocatore_id
+            JOIN giocatori g1 ON la.giocatore_id = g1.id
+            JOIN lupus_ruoli lr1 ON lp1.ruolo_id = lr1.id
+            LEFT JOIN giocatori g2 ON la.target_giocatore_id = g2.id
+            WHERE la.partita_id = %s AND la.turno = %s
+            ORDER BY la.timestamp
+        """, (partita_id, turno))
+
+        actions = cursor.fetchall()
+
+        actions_list = []
+        for action in actions:
+            actions_list.append({
+                'tipo_azione': action[0],
+                'risultato': action[1],
+                'successo': bool(action[2]),
+                'timestamp': action[3].isoformat() if action[3] else None,
+                'giocatore_nome': action[4],
+                'ruolo': action[5],
+                'target_nome': action[6]
+            })
+
+        return jsonify(actions_list)
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per voti di un turno specifico
+@app.route('/api/gamemaster/lupus-votes/<int:partita_id>/<int:turno>')
+def get_lupus_votes(partita_id, turno):
+    """Ottieni tutti i voti di un turno specifico"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT lv.peso_voto, lv.timestamp,
+                   g1.nome as votante_nome,
+                   g2.nome as votato_nome
+            FROM lupus_votazioni lv
+            JOIN giocatori g1 ON lv.votante_giocatore_id = g1.id
+            JOIN giocatori g2 ON lv.votato_giocatore_id = g2.id
+            WHERE lv.partita_id = %s AND lv.turno = %s
+            ORDER BY lv.timestamp
+        """, (partita_id, turno))
+
+        votes = cursor.fetchall()
+
+        votes_list = []
+        for vote in votes:
+            votes_list.append({
+                'peso_voto': vote[0],
+                'timestamp': vote[1].isoformat() if vote[1] else None,
+                'votante_nome': vote[2],
+                'votato_nome': vote[3]
+            })
+
+        return jsonify(votes_list)
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per eventi di una partita
+@app.route('/api/gamemaster/lupus-events/<int:partita_id>')
+def get_lupus_events(partita_id):
+    """Ottieni eventi di una partita"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT le.turno, le.fase, le.tipo_evento, le.descrizione, 
+                   le.giocatori_coinvolti, le.timestamp
+            FROM lupus_eventi le
+            WHERE le.partita_id = %s
+            ORDER BY le.timestamp DESC
+            LIMIT 50
+        """, (partita_id,))
+
+        events = cursor.fetchall()
+
+        events_list = []
+        for event in events:
+            events_list.append({
+                'turno': event[0],
+                'fase': event[1],
+                'tipo_evento': event[2],
+                'descrizione': event[3],
+                'giocatori_coinvolti': json.loads(event[4]) if event[4] else [],
+                'timestamp': event[5].isoformat() if event[5] else None
+            })
+
+        return jsonify(events_list)
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per azioni manuali sui giocatori
+@app.route('/api/gamemaster/lupus-player-action', methods=['POST'])
+def lupus_player_action():
+    """Esegui azione manuale su un giocatore"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    player_id = data.get('player_id')
+    action = data.get('action')  # 'kill', 'revive'
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Trova partita attiva e partecipazione del giocatore
+        cursor.execute("""
+            SELECT lpt.id, lpt.turno_numero, lp.stato, g.nome
+            FROM lupus_partite lpt
+            JOIN lupus_partecipazioni lp ON lpt.id = lp.partita_id
+            JOIN giocatori g ON lp.giocatore_id = g.id
+            WHERE lpt.stato != 'ended' AND lp.giocatore_id = %s
+            ORDER BY lpt.id DESC LIMIT 1
+        """, (player_id,))
+
+        result = cursor.fetchone()
+        if not result:
+            return jsonify({'error': 'Giocatore non trovato nella partita'})
+
+        partita_id, turno, stato_attuale, nome_giocatore = result
+
+        if action == 'kill' and stato_attuale == 'vivo':
+            # Elimina giocatore
+            cursor.execute("""
+                UPDATE lupus_partecipazioni 
+                SET stato = 'morto', morte_turno = %s, morte_fase = 'gamemaster'
+                WHERE partita_id = %s AND giocatore_id = %s
+            """, (turno, partita_id, player_id))
+
+            # Log evento
+            cursor.execute("""
+                INSERT INTO lupus_eventi (partita_id, turno, fase, tipo_evento, descrizione, giocatori_coinvolti)
+                VALUES (%s, %s, 'gamemaster', 'eliminazione_manuale', %s, %s)
+            """, (partita_id, turno, f'Giocatore {nome_giocatore} eliminato manualmente dal gamemaster',
+                  json.dumps([player_id])))
+
+            message = f'Giocatore {nome_giocatore} eliminato'
+
+        elif action == 'revive' and stato_attuale != 'vivo':
+            # Riporta in vita giocatore
+            cursor.execute("""
+                UPDATE lupus_partecipazioni 
+                SET stato = 'vivo', morte_turno = NULL, morte_fase = NULL
+                WHERE partita_id = %s AND giocatore_id = %s
+            """, (partita_id, player_id))
+
+            # Log evento
+            cursor.execute("""
+                INSERT INTO lupus_eventi (partita_id, turno, fase, tipo_evento, descrizione, giocatori_coinvolti)
+                VALUES (%s, %s, 'gamemaster', 'resurrezione_manuale', %s, %s)
+            """, (
+            partita_id, turno, f'Giocatore {nome_giocatore} riportato in vita dal gamemaster', json.dumps([player_id])))
+
+            message = f'Giocatore {nome_giocatore} riportato in vita'
+
+        else:
+            return jsonify({'error': f'Azione non valida: {action} per stato {stato_attuale}'})
+
+        conn.commit()
+        return jsonify({'success': True, 'message': message})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# Funzioni utility per la gestione di Lupus in Fabula
+def log_lupus_event(partita_id, turno, fase, tipo_evento, descrizione, giocatori_coinvolti=None):
+    """Log di un evento nella partita"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            INSERT INTO lupus_eventi (partita_id, turno, fase, tipo_evento, descrizione, giocatori_coinvolti)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (partita_id, turno, fase, tipo_evento, descrizione,
+              json.dumps(giocatori_coinvolti) if giocatori_coinvolti else None))
+        conn.commit()
+    except Exception as e:
+        print(f"Errore log evento: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def check_lupus_win_conditions(partita_id):
+    """Controlla le condizioni di vittoria"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Conta giocatori vivi per team
+        cursor.execute("""
+            SELECT lr.team, COUNT(*) as count
+            FROM lupus_partecipazioni lp
+            JOIN lupus_ruoli lr ON lp.ruolo_id = lr.id
+            WHERE lp.partita_id = %s AND lp.stato = 'vivo'
+            GROUP BY lr.team
+        """, (partita_id,))
+
+        team_counts = dict(cursor.fetchall())
+        lupi_vivi = team_counts.get('lupi', 0)
+        cittadini_vivi = team_counts.get('cittadini', 0)
+
+        # Vittoria lupi: lupi >= cittadini
+        if lupi_vivi > 0 and lupi_vivi >= cittadini_vivi:
+            return 'lupi'
+
+        # Vittoria cittadini: nessun lupo vivo
+        if lupi_vivi == 0:
+            return 'cittadini'
+
+        return None
+
+    except Exception as e:
+        print(f"Errore controllo vittoria: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def update_lupus_phase_timer(partita_id, fase, durata_minuti=5):
+    """Aggiorna il timer della fase corrente"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        fine_fase = datetime.now() + timedelta(minutes=durata_minuti)
+        cursor.execute("""
+            UPDATE lupus_partite 
+            SET fase_corrente = %s, fine_fase = %s, ultimo_aggiornamento = NOW()
+            WHERE id = %s
+        """, (fase, fine_fase, partita_id))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Errore aggiornamento timer: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# Aggiungi queste tabelle al database (script SQL da eseguire)
+def create_lupus_tables():
+    """Crea le tabelle necessarie per Lupus in Fabula"""
+
+    lupus_tables_sql = """
+    -- Tabella configurazioni di gioco
+    CREATE TABLE IF NOT EXISTS lupus_configurazioni (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nome VARCHAR(100) NOT NULL,
+        descrizione TEXT,
+        min_giocatori INT DEFAULT 5,
+        max_giocatori INT DEFAULT 15,
+        durata_notte INT DEFAULT 120, -- secondi
+        durata_giorno INT DEFAULT 300,
+        durata_votazione INT DEFAULT 180,
+        ruoli_disponibili JSON, -- lista ruoli con quantità
+        regole_speciali JSON,
+        attiva BOOLEAN DEFAULT TRUE,
+        creata_il TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Tabella ruoli disponibili
+    CREATE TABLE IF NOT EXISTS lupus_ruoli (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nome VARCHAR(50) NOT NULL UNIQUE,
+        descrizione TEXT,
+        team ENUM('lupi', 'cittadini', 'neutral') NOT NULL,
+        abilita_speciali JSON,
+        priorita_azione INT DEFAULT 0,
+        attivo BOOLEAN DEFAULT TRUE
+    );
+
+    -- Tabella partite Lupus
+    CREATE TABLE IF NOT EXISTS lupus_partite (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        configurazione_id INT,
+        stato ENUM('setup', 'active', 'paused', 'ended') DEFAULT 'setup',
+        fase_corrente ENUM('setup', 'night', 'day', 'voting', 'ended') DEFAULT 'setup',
+        turno_numero INT DEFAULT 1,
+        inizio_partita TIMESTAMP NULL,
+        fine_partita TIMESTAMP NULL,
+        fine_fase TIMESTAMP NULL,
+        squadra_vincente VARCHAR(50) NULL,
+        ultimo_aggiornamento TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (configurazione_id) REFERENCES lupus_configurazioni(id)
+    );
+
+    -- Tabella partecipazioni
+    CREATE TABLE IF NOT EXISTS lupus_partecipazioni (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        partita_id INT NOT NULL,
+        giocatore_id INT NOT NULL,
+        ruolo_id INT NOT NULL,
+        stato ENUM('vivo', 'morto', 'eliminato') DEFAULT 'vivo',
+        morte_turno INT NULL,
+        morte_fase VARCHAR(20) NULL,
+        note_private TEXT,
+        FOREIGN KEY (partita_id) REFERENCES lupus_partite(id) ON DELETE CASCADE,
+        FOREIGN KEY (giocatore_id) REFERENCES giocatori(id),
+        FOREIGN KEY (ruolo_id) REFERENCES lupus_ruoli(id),
+        UNIQUE KEY unique_participation (partita_id, giocatore_id)
+    );
+
+    -- Tabella azioni dei giocatori
+    CREATE TABLE IF NOT EXISTS lupus_azioni (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        partita_id INT NOT NULL,
+        giocatore_id INT NOT NULL,
+        turno INT NOT NULL,
+        fase ENUM('night', 'day', 'voting') NOT NULL,
+        tipo_azione VARCHAR(50) NOT NULL,
+        target_giocatore_id INT NULL,
+        parametri_extra JSON,
+        risultato TEXT,
+        successo BOOLEAN DEFAULT FALSE,
+        processata BOOLEAN DEFAULT FALSE,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (partita_id) REFERENCES lupus_partite(id) ON DELETE CASCADE,
+        FOREIGN KEY (giocatore_id) REFERENCES giocatori(id),
+        FOREIGN KEY (target_giocatore_id) REFERENCES giocatori(id)
+    );
+
+    -- Tabella votazioni
+    CREATE TABLE IF NOT EXISTS lupus_votazioni (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        partita_id INT NOT NULL,
+        turno INT NOT NULL,
+        votante_giocatore_id INT NOT NULL,
+        votato_giocatore_id INT NOT NULL,
+        peso_voto INT DEFAULT 1,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (partita_id) REFERENCES lupus_partite(id) ON DELETE CASCADE,
+        FOREIGN KEY (votante_giocatore_id) REFERENCES giocatori(id),
+        FOREIGN KEY (votato_giocatore_id) REFERENCES giocatori(id),
+        UNIQUE KEY unique_vote (partita_id, turno, votante_giocatore_id)
+    );
+
+    -- Tabella eventi/log
+    CREATE TABLE IF NOT EXISTS lupus_eventi (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        partita_id INT NOT NULL,
+        turno INT NOT NULL,
+        fase VARCHAR(20) NOT NULL,
+        tipo_evento VARCHAR(50) NOT NULL,
+        descrizione TEXT NOT NULL,
+        giocatori_coinvolti JSON,
+        metadati JSON,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (partita_id) REFERENCES lupus_partite(id) ON DELETE CASCADE
+    );
+
+    -- Inserimento ruoli base
+    INSERT IGNORE INTO lupus_ruoli (nome, descrizione, team, abilita_speciali, priorita_azione) VALUES
+    ('Lupo', 'Elimina un cittadino ogni notte', 'lupi', '{"azione_notte": "kill", "gruppo": true}', 1),
+    ('Lupo Alpha', 'Lupo con poteri speciali', 'lupi', '{"azione_notte": "kill", "gruppo": true, "immunita_prima_notte": true}', 1),
+    ('Cittadino', 'Ruolo base senza poteri speciali', 'cittadini', '{}', 0),
+    ('Veggente', 'Può scoprire il ruolo di un giocatore ogni notte', 'cittadini', '{"azione_notte": "investigate"}', 2),
+    ('Dottore', 'Può proteggere un giocatore ogni notte', 'cittadini', '{"azione_notte": "protect"}', 3),
+    ('Guardia del Corpo', 'Protegge permanentemente un giocatore', 'cittadini', '{"azione_setup": "protect_permanent"}', 0),
+    ('Detective', 'Ottiene informazioni sui morti', 'cittadini', '{"azione_giorno": "investigate_dead"}', 0),
+    ('Cacciatore', 'Può eliminare qualcuno quando viene eliminato', 'cittadini', '{"azione_morte": "revenge_kill"}', 0),
+    ('Sindaco', 'Il suo voto vale doppio', 'cittadini', '{"peso_voto": 2}', 0),
+    ('Innamorati', 'Muoiono insieme', 'cittadini', '{"legame": "lovers"}', 0),
+    ('Assassino', 'Può uccidere una volta per partita', 'neutral', '{"azione_speciale": "kill_once"}', 4),
+    ('Jolly', 'Vince se sopravvive fino alla fine', 'neutral', '{"condizione_vittoria": "survivor"}', 0);
+
+    -- Configurazioni predefinite
+    INSERT IGNORE INTO lupus_configurazioni (nome, descrizione, min_giocatori, max_giocatori, ruoli_disponibili) VALUES
+    ('Classica 5-8 giocatori', 'Configurazione base per piccoli gruppi', 5, 8, 
+     '{"Lupo": 1, "Cittadino": 3, "Veggente": 1, "Dottore": 1}'),
+    ('Standard 8-12 giocatori', 'Configurazione standard con più ruoli', 8, 12,
+     '{"Lupo": 2, "Cittadino": 4, "Veggente": 1, "Dottore": 1, "Detective": 1, "Guardia del Corpo": 1}'),
+    ('Avanzata 10-15 giocatori', 'Con ruoli speciali e neutral', 10, 15,
+     '{"Lupo": 2, "Lupo Alpha": 1, "Cittadino": 5, "Veggente": 1, "Dottore": 1, "Detective": 1, "Cacciatore": 1, "Sindaco": 1, "Assassino": 1}'),
+    ('Chaos Mode 12+ giocatori', 'Modalità con innamorati e molti ruoli', 12, 20,
+     '{"Lupo": 3, "Lupo Alpha": 1, "Cittadino": 6, "Veggente": 1, "Dottore": 1, "Detective": 1, "Cacciatore": 1, "Sindaco": 1, "Innamorati": 2, "Assassino": 1, "Jolly": 1}');
+    """
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Esegui ogni comando separatamente
+        for statement in lupus_tables_sql.split(';'):
+            statement = statement.strip()
+            if statement:
+                cursor.execute(statement)
+
+        conn.commit()
+        print("Tabelle Lupus in Fabula create con successo!")
+        return True
+
+    except mysql.connector.Error as err:
+        print(f"Errore creazione tabelle: {err}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# Route aggiuntive per gestione avanzata
+
+@app.route('/api/gamemaster/lupus-advanced-action', methods=['POST'])
+def lupus_advanced_action():
+    """Azioni avanzate del gamemaster"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    action_type = data.get('type')
+    partita_id = data.get('partita_id')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        if action_type == 'force_phase_end':
+            # Forza fine fase corrente
+            cursor.execute("""
+                UPDATE lupus_partite 
+                SET fine_fase = NOW()
+                WHERE id = %s
+            """, (partita_id,))
+
+            message = 'Fase terminata forzatamente'
+
+        elif action_type == 'extend_time':
+            # Estendi tempo fase corrente
+            cursor.execute("""
+                UPDATE lupus_partite 
+                SET fine_fase = DATE_ADD(fine_fase, INTERVAL 30 SECOND)
+                WHERE id = %s
+            """, (partita_id,))
+
+            message = 'Tempo esteso di 30 secondi'
+
+        elif action_type == 'reset_votes':
+            # Reset voti turno corrente
+            cursor.execute("""
+                SELECT turno_numero FROM lupus_partite WHERE id = %s
+            """, (partita_id,))
+            turno = cursor.fetchone()[0]
+
+            cursor.execute("""
+                DELETE FROM lupus_votazioni 
+                WHERE partita_id = %s AND turno = %s
+            """, (partita_id, turno))
+
+            message = 'Voti del turno corrente cancellati'
+
+        elif action_type == 'pause_game':
+            # Pausa partita
+            cursor.execute("""
+                UPDATE lupus_partite 
+                SET stato = 'paused', fine_fase = NULL
+                WHERE id = %s
+            """, (partita_id,))
+
+            message = 'Partita messa in pausa'
+
+        elif action_type == 'resume_game':
+            # Riprendi partita
+            cursor.execute("""
+                UPDATE lupus_partite 
+                SET stato = 'active', fine_fase = DATE_ADD(NOW(), INTERVAL 5 MINUTE)
+                WHERE id = %s
+            """, (partita_id,))
+
+            message = 'Partita ripresa'
+
+        else:
+            return jsonify({'error': 'Azione non riconosciuta'})
+
+        conn.commit()
+        return jsonify({'success': True, 'message': message})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/lupus-stats/<int:partita_id>')
+def get_lupus_stats(partita_id):
+    """Statistiche dettagliate della partita"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Statistiche generali
+        cursor.execute("""
+            SELECT 
+                COUNT(*) as totale_giocatori,
+                SUM(CASE WHEN lp.stato = 'vivo' THEN 1 ELSE 0 END) as vivi,
+                SUM(CASE WHEN lp.stato = 'morto' THEN 1 ELSE 0 END) as morti,
+                SUM(CASE WHEN lr.team = 'lupi' AND lp.stato = 'vivo' THEN 1 ELSE 0 END) as lupi_vivi,
+                SUM(CASE WHEN lr.team = 'cittadini' AND lp.stato = 'vivo' THEN 1 ELSE 0 END) as cittadini_vivi,
+                SUM(CASE WHEN lr.team = 'neutral' AND lp.stato = 'vivo' THEN 1 ELSE 0 END) as neutral_vivi
+            FROM lupus_partecipazioni lp
+            JOIN lupus_ruoli lr ON lp.ruolo_id = lr.id
+            WHERE lp.partita_id = %s
+        """, (partita_id,))
+
+        stats = cursor.fetchone()
+
+        # Azioni per turno
+        cursor.execute("""
+            SELECT turno, COUNT(*) as azioni_count
+            FROM lupus_azioni
+            WHERE partita_id = %s
+            GROUP BY turno
+            ORDER BY turno
+        """, (partita_id,))
+
+        azioni_per_turno = dict(cursor.fetchall())
+
+        # Morti per turno
+        cursor.execute("""
+            SELECT morte_turno, COUNT(*) as morti_count
+            FROM lupus_partecipazioni
+            WHERE partita_id = %s AND morte_turno IS NOT NULL
+            GROUP BY morte_turno
+            ORDER BY morte_turno
+        """, (partita_id,))
+
+        morti_per_turno = dict(cursor.fetchall())
+
+        return jsonify({
+            'totale_giocatori': stats[0],
+            'giocatori_vivi': stats[1],
+            'giocatori_morti': stats[2],
+            'lupi_vivi': stats[3],
+            'cittadini_vivi': stats[4],
+            'neutral_vivi': stats[5],
+            'azioni_per_turno': azioni_per_turno,
+            'morti_per_turno': morti_per_turno
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# Aggiungi questa route al tuo app.py
+
+
+
+# Chiamata per creare le tabelle (da eseguire una volta)
+if __name__ == "__main__":
+    create_lupus_tables()
 
 
 if __name__ == '__main__':
