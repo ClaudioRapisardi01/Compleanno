@@ -3408,7 +3408,426 @@ def get_lupus_stats(partita_id):
 
 
 # Aggiungi questa route al tuo app.py
+# Aggiungi queste funzioni al tuo app.py per il sistema di punteggi Lupus
 
+def calculate_lupus_points(partita_id, team_vincitore):
+    """Calcola e assegna punti ai vincitori della partita Lupus"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Ottieni informazioni sulla partita
+        cursor.execute("""
+            SELECT turno_numero, created_at
+            FROM lupus_partite 
+            WHERE id = %s
+        """, (partita_id,))
+
+        partita_info = cursor.fetchone()
+        if not partita_info:
+            return False
+
+        turno_finale, data_inizio = partita_info
+
+        # Calcola durata partita in minuti
+        durata_partita = (datetime.now() - data_inizio).total_seconds() / 60
+
+        # Ottieni tutti i partecipanti con i loro ruoli
+        cursor.execute("""
+            SELECT lp.giocatore_id, g.nome, lr.nome as ruolo, lr.team, 
+                   lp.stato, lp.morte_turno, lp.simulato
+            FROM lupus_partecipazioni lp
+            JOIN giocatori g ON lp.giocatore_id = g.id
+            JOIN lupus_ruoli lr ON lp.ruolo_id = lr.id
+            WHERE lp.partita_id = %s
+        """, (partita_id,))
+
+        partecipanti = cursor.fetchall()
+
+        # Sistema di punteggi base
+        punti_base = {
+            'vittoria_base': 50,  # Punti base per la vittoria
+            'sopravvivenza': 25,  # Punti per essere sopravvissuto
+            'performance_lupo': 30,  # Bonus per lupi che eliminano molti
+            'performance_cittadino': 20,  # Bonus per cittadini che scoprono lupi
+            'partecipazione': 10,  # Punti base per aver partecipato
+            'durata_bonus': 5  # Bonus per partite lunghe (per turno oltre il 3°)
+        }
+
+        # Calcola punti per ogni giocatore
+        punteggi = []
+
+        for giocatore_id, nome, ruolo, team, stato, morte_turno, is_bot in partecipanti:
+            # Salta i bot per l'assegnazione punti
+            if is_bot:
+                continue
+
+            punti_giocatore = 0
+            dettaglio = []
+
+            # Punti partecipazione base
+            punti_giocatore += punti_base['partecipazione']
+            dettaglio.append(f"Partecipazione: +{punti_base['partecipazione']}")
+
+            # Punti vittoria team
+            if team == team_vincitore:
+                punti_giocatore += punti_base['vittoria_base']
+                dettaglio.append(f"Vittoria {team}: +{punti_base['vittoria_base']}")
+
+                # Bonus sopravvivenza per vincitori
+                if stato == 'vivo':
+                    punti_giocatore += punti_base['sopravvivenza']
+                    dettaglio.append(f"Sopravvissuto: +{punti_base['sopravvivenza']}")
+
+            # Bonus durata partita (per partite lunghe)
+            if turno_finale > 3:
+                bonus_durata = (turno_finale - 3) * punti_base['durata_bonus']
+                punti_giocatore += bonus_durata
+                dettaglio.append(f"Partita lunga ({turno_finale} turni): +{bonus_durata}")
+
+            # Bonus specifici per ruolo
+            punti_ruolo, dettaglio_ruolo = calculate_role_bonus(
+                cursor, partita_id, giocatore_id, ruolo, team, team_vincitore
+            )
+            punti_giocatore += punti_ruolo
+            dettaglio.extend(dettaglio_ruolo)
+
+            # Salva il punteggio
+            punteggi.append({
+                'giocatore_id': giocatore_id,
+                'nome': nome,
+                'ruolo': ruolo,
+                'team': team,
+                'punti': punti_giocatore,
+                'dettaglio': dettaglio
+            })
+
+            # Aggiorna i punti totali del giocatore
+            cursor.execute("""
+                UPDATE giocatori 
+                SET punti_totali = punti_totali + %s 
+                WHERE id = %s
+            """, (punti_giocatore, giocatore_id))
+
+            # Registra la partecipazione con punti
+            cursor.execute("""
+                INSERT INTO partecipazioni (giocatore_id, gioco, punti, timestamp, dettagli)
+                VALUES (%s, 'lupus_in_fabula', %s, NOW(), %s)
+            """, (giocatore_id, punti_giocatore, json.dumps({
+                'ruolo': ruolo,
+                'team': team,
+                'vincitore': team == team_vincitore,
+                'stato_finale': stato,
+                'turni_giocati': turno_finale,
+                'dettaglio_punti': dettaglio
+            })))
+
+        # Salva evento vittoria
+        cursor.execute("""
+            INSERT INTO lupus_eventi (partita_id, turno, fase, tipo_evento, descrizione, giocatori_coinvolti)
+            VALUES (%s, %s, 'ended', 'victory', %s, %s)
+        """, (partita_id, turno_finale,
+              f'Vittoria del team {team_vincitore}! Punti assegnati ai giocatori.',
+              json.dumps([p['giocatore_id'] for p in punteggi])))
+
+        conn.commit()
+        return punteggi
+
+    except Exception as e:
+        print(f"Errore calcolo punteggi: {e}")
+        conn.rollback()
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def calculate_role_bonus(cursor, partita_id, giocatore_id, ruolo, team, team_vincitore):
+    """Calcola bonus specifici per ruolo"""
+    punti_bonus = 0
+    dettaglio = []
+
+    try:
+        if ruolo in ['Lupo', 'Lupo Alpha']:
+            # Bonus per lupi: punti per ogni uccisione
+            cursor.execute("""
+                SELECT COUNT(*) FROM lupus_azioni 
+                WHERE partita_id = %s AND giocatore_id = %s 
+                AND tipo_azione = 'kill' AND successo = TRUE
+            """, (partita_id, giocatore_id))
+
+            uccisioni = cursor.fetchone()[0]
+            if uccisioni > 0:
+                bonus_kill = uccisioni * 15
+                punti_bonus += bonus_kill
+                dettaglio.append(f"Eliminazioni ({uccisioni}): +{bonus_kill}")
+
+        elif ruolo == 'Veggente':
+            # Bonus per veggente: punti per investigazioni su lupi
+            cursor.execute("""
+                SELECT COUNT(*) FROM lupus_azioni la
+                JOIN lupus_partecipazioni lp ON la.target_giocatore_id = lp.giocatore_id 
+                JOIN lupus_ruoli lr ON lp.ruolo_id = lr.id
+                WHERE la.partita_id = %s AND la.giocatore_id = %s 
+                AND la.tipo_azione = 'investigate' AND lr.team = 'lupi'
+            """, (partita_id, giocatore_id))
+
+            lupi_scoperti = cursor.fetchone()[0]
+            if lupi_scoperti > 0:
+                bonus_investigate = lupi_scoperti * 20
+                punti_bonus += bonus_investigate
+                dettaglio.append(f"Lupi investigati ({lupi_scoperti}): +{bonus_investigate}")
+
+        elif ruolo == 'Dottore':
+            # Bonus per dottore: punti per protezioni riuscite
+            cursor.execute("""
+                SELECT COUNT(*) FROM lupus_azioni 
+                WHERE partita_id = %s AND giocatore_id = %s 
+                AND tipo_azione = 'protect' AND successo = TRUE
+            """, (partita_id, giocatore_id))
+
+            protezioni = cursor.fetchone()[0]
+            if protezioni > 0:
+                bonus_protect = protezioni * 25
+                punti_bonus += bonus_protect
+                dettaglio.append(f"Protezioni riuscite ({protezioni}): +{bonus_protect}")
+
+        elif ruolo == 'Sindaco':
+            # Bonus per sindaco: punti per voti decisivi
+            cursor.execute("""
+                SELECT COUNT(DISTINCT turno) FROM lupus_votazioni 
+                WHERE partita_id = %s AND votante_giocatore_id = %s AND peso_voto > 1
+            """, (partita_id, giocatore_id))
+
+            voti_doppi = cursor.fetchone()[0]
+            if voti_doppi > 0:
+                bonus_vote = voti_doppi * 10
+                punti_bonus += bonus_vote
+                dettaglio.append(f"Voti influenti ({voti_doppi}): +{bonus_vote}")
+
+        # Bonus generale per ruoli speciali se il team ha vinto
+        if team == team_vincitore and ruolo != 'Cittadino':
+            punti_bonus += 15
+            dettaglio.append(f"Ruolo speciale vincente: +15")
+
+    except Exception as e:
+        print(f"Errore calcolo bonus ruolo: {e}")
+
+    return punti_bonus, dettaglio
+
+
+@app.route('/api/gamemaster/lupus-end-game', methods=['POST'])
+def end_lupus_game():
+    """Termina la partita Lupus e assegna punti"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    force_end = data.get('force_end', False)
+    winner_team = data.get('winner_team')  # Opzionale: forza un vincitore
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Trova partita attiva
+        cursor.execute("""
+            SELECT id FROM lupus_partite 
+            WHERE stato IN ('waiting', 'in_progress') 
+            ORDER BY id DESC LIMIT 1
+        """)
+
+        partita = cursor.fetchone()
+        if not partita:
+            return jsonify({'error': 'Nessuna partita attiva da terminare'})
+
+        partita_id = partita[0]
+
+        # Determina il vincitore se non forzato
+        if not winner_team:
+            winner_team = check_lupus_win_conditions(partita_id)
+
+            # Se non c'è un vincitore naturale e non è forzata la fine
+            if not winner_team and not force_end:
+                return jsonify({'error': 'La partita non ha ancora un vincitore naturale'})
+
+            # Se forziamo la fine senza vincitore, consideriamo pareggio
+            if not winner_team and force_end:
+                winner_team = 'pareggio'
+
+        # Aggiorna stato partita
+        cursor.execute("""
+            UPDATE lupus_partite 
+            SET stato = 'ended', vincitore = %s, fase_corrente = 'ended'
+            WHERE id = %s
+        """, (winner_team if winner_team != 'pareggio' else None, partita_id))
+
+        # Calcola e assegna punti solo se c'è un vincitore
+        punteggi = []
+        if winner_team != 'pareggio':
+            punteggi = calculate_lupus_points(partita_id, winner_team)
+
+        # Aggiorna stato gioco globale
+        cursor.execute("""
+            UPDATE stato_gioco 
+            SET gioco_attivo = NULL, messaggio = 'Gioco terminato. In attesa del gamemaster...'
+            WHERE id = 1
+        """)
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'winner_team': winner_team,
+            'punteggi': punteggi if punteggi else [],
+            'message': f'Partita terminata! {"Vittoria del team " + winner_team if winner_team != "pareggio" else "Partita terminata in pareggio"}'
+        })
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': f'Errore terminazione partita: {str(e)}'}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/lupus-restart', methods=['POST'])
+def restart_lupus_game():
+    """Riavvia una nuova partita Lupus con la stessa configurazione"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    same_players = data.get('same_players', True)
+    same_config = data.get('same_config', True)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Ottieni info dell'ultima partita
+        cursor.execute("""
+            SELECT config_utilizzata FROM lupus_partite 
+            WHERE stato = 'ended' 
+            ORDER BY id DESC LIMIT 1
+        """)
+
+        last_game = cursor.fetchone()
+        config_id = last_game[0] if last_game and same_config else None
+
+        # Se manteniamo gli stessi giocatori, usa quelli dell'ultima partita
+        if same_players and last_game:
+            cursor.execute("""
+                SELECT lp.giocatore_id FROM lupus_partecipazioni lp
+                JOIN lupus_partite lpart ON lp.partita_id = lpart.id
+                WHERE lpart.stato = 'ended' AND lp.simulato = FALSE
+                ORDER BY lpart.id DESC
+            """)
+            player_ids = [row[0] for row in cursor.fetchall()]
+
+            if len(player_ids) < 3:
+                return jsonify({'error': 'Serve almeno 3 giocatori per riavviare'})
+
+        # Termina eventuali partite ancora attive
+        cursor.execute("UPDATE lupus_partite SET stato = 'ended' WHERE stato != 'ended'")
+
+        # Avvia nuova partita con la configurazione precedente
+        if config_id:
+            # Riusa la configurazione precedente
+            return start_lupus_game()  # Chiama la funzione esistente
+        else:
+            # Avvia con configurazione di default
+            return start_flexible_lupus_game()  # Chiama la funzione flessibile
+
+    except Exception as e:
+        return jsonify({'error': f'Errore riavvio partita: {str(e)}'}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/gamemaster/lupus-game-summary/<int:partita_id>')
+def get_lupus_game_summary(partita_id):
+    """Ottieni riassunto dettagliato della partita terminata"""
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Info partita
+        cursor.execute("""
+            SELECT lp.vincitore, lp.turno_numero, lp.created_at,
+                   TIMESTAMPDIFF(MINUTE, lp.created_at, NOW()) as durata_minuti
+            FROM lupus_partite lp
+            WHERE lp.id = %s
+        """, (partita_id,))
+
+        partita_info = cursor.fetchone()
+        if not partita_info:
+            return jsonify({'error': 'Partita non trovata'})
+
+        vincitore, turni, inizio, durata = partita_info
+
+        # Statistiche giocatori
+        cursor.execute("""
+            SELECT g.nome, lr.nome as ruolo, lr.team, lp.stato, 
+                   lp.morte_turno, lp.simulato,
+                   COALESCE(part.punti, 0) as punti_ottenuti
+            FROM lupus_partecipazioni lp
+            JOIN giocatori g ON lp.giocatore_id = g.id
+            JOIN lupus_ruoli lr ON lp.ruolo_id = lr.id
+            LEFT JOIN partecipazioni part ON part.giocatore_id = g.id 
+                AND part.gioco = 'lupus_in_fabula' 
+                AND DATE(part.timestamp) = DATE(NOW())
+            WHERE lp.partita_id = %s
+            ORDER BY lr.team, lp.simulato, g.nome
+        """, (partita_id,))
+
+        giocatori = cursor.fetchall()
+
+        # Eventi principali
+        cursor.execute("""
+            SELECT turno, fase, tipo_evento, descrizione, timestamp
+            FROM lupus_eventi
+            WHERE partita_id = %s
+            ORDER BY turno, timestamp
+        """, (partita_id,))
+
+        eventi = cursor.fetchall()
+
+        return jsonify({
+            'partita': {
+                'id': partita_id,
+                'vincitore': vincitore,
+                'turni_totali': turni,
+                'durata_minuti': durata,
+                'data_inizio': inizio.isoformat()
+            },
+            'giocatori': [{
+                'nome': g[0],
+                'ruolo': g[1],
+                'team': g[2],
+                'stato_finale': g[3],
+                'morte_turno': g[4],
+                'era_bot': g[5],
+                'punti_ottenuti': g[6]
+            } for g in giocatori],
+            'eventi': [{
+                'turno': e[0],
+                'fase': e[1],
+                'tipo': e[2],
+                'descrizione': e[3],
+                'timestamp': e[4].isoformat()
+            } for e in eventi]
+        })
+
+    except Exception as e:
+        return jsonify({'error': f'Errore recupero riassunto: {str(e)}'}), 500
+    finally:
+        cursor.close()
+        conn.close()
 
 
 # Chiamata per creare le tabelle (da eseguire una volta)

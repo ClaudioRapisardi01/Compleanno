@@ -921,3 +921,434 @@ function initializeUI() {
     // Aggiungi eventuali inizializzazioni UI aggiuntive
     console.log('Lupus Gamemaster UI inizializzato');
 }
+
+
+// Aggiungi queste funzioni al tuo static/js/lupus_gamemaster.js o gamemaster_panel.js
+
+// Funzione per terminare la partita
+function endLupusGame() {
+    showConfirmModal(
+        '🛑 Terminare la partita?',
+        'Questo terminerà immediatamente la partita corrente e assegnerà i punti ai vincitori. Sei sicuro?',
+        () => executeEndGame(false)
+    );
+}
+
+// Funzione per forzare la fine con un vincitore specifico
+function forceEndLupusGame(winnerTeam) {
+    const teamNames = {
+        'lupi': 'Lupi 🐺',
+        'cittadini': 'Cittadini 👥',
+        'pareggio': 'Pareggio ⚖️'
+    };
+
+    showConfirmModal(
+        `🏆 Dichiarare vittoria ${teamNames[winnerTeam]}?`,
+        `Questo terminerà la partita dichiarando vincitori i ${teamNames[winnerTeam]}. I punti verranno assegnati di conseguenza.`,
+        () => executeEndGame(true, winnerTeam)
+    );
+}
+
+function executeEndGame(forceEnd = false, winnerTeam = null) {
+    showLoading('Terminando partita...');
+
+    const requestData = {
+        force_end: forceEnd
+    };
+
+    if (winnerTeam) {
+        requestData.winner_team = winnerTeam;
+    }
+
+    fetch('/api/gamemaster/lupus-end-game', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            showGameEndModal(data);
+            loadGameStatus(); // Aggiorna display
+        } else {
+            showNotification(data.error || 'Errore terminazione partita', 'error');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        showNotification('Errore di connessione', 'error');
+    });
+}
+
+// Funzione per riavviare la partita
+function restartLupusGame() {
+    showConfirmModal(
+        '🔄 Riavviare Lupus?',
+        'Vuoi riavviare una nuova partita con la stessa configurazione e gli stessi giocatori?',
+        () => executeRestartGame()
+    );
+}
+
+function executeRestartGame() {
+    showLoading('Riavvio partita...');
+
+    fetch('/api/gamemaster/lupus-restart', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            same_players: true,
+            same_config: true
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            showNotification('🐺 Nuova partita avviata!');
+            loadGameStatus();
+        } else {
+            showNotification(data.error || 'Errore riavvio partita', 'error');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        showNotification('Errore di connessione', 'error');
+    });
+}
+
+// Modal per mostrare i risultati della partita
+function showGameEndModal(gameData) {
+    const modal = document.createElement('div');
+    modal.className = 'game-end-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+    `;
+
+    const winnerEmoji = {
+        'lupi': '🐺',
+        'cittadini': '👥',
+        'pareggio': '⚖️'
+    };
+
+    const winnerColor = {
+        'lupi': '#e74c3c',
+        'cittadini': '#3498db',
+        'pareggio': '#f39c12'
+    };
+
+    const winner = gameData.winner_team || 'pareggio';
+
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 20px; padding: 30px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <div style="font-size: 4em; margin-bottom: 10px;">${winnerEmoji[winner]}</div>
+                <h2 style="color: ${winnerColor[winner]}; margin: 0;">
+                    ${winner === 'pareggio' ? 'Partita Terminata' : `Vittoria ${winner.charAt(0).toUpperCase() + winner.slice(1)}!`}
+                </h2>
+                <p style="color: #666; margin: 10px 0;">${gameData.message}</p>
+            </div>
+
+            ${gameData.punteggi && gameData.punteggi.length > 0 ? `
+                <div style="margin-bottom: 30px;">
+                    <h3 style="color: #333; margin-bottom: 20px; text-align: center;">🏆 Punteggi Assegnati</h3>
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        ${gameData.punteggi.map(p => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; margin-bottom: 10px; background: ${p.team === winner ? '#e8f5e8' : '#f8f9fa'}; border-radius: 10px; border-left: 4px solid ${getTeamColor(p.team)};">
+                                <div>
+                                    <div style="font-weight: bold; color: #333;">${p.nome}</div>
+                                    <div style="font-size: 0.9em; color: #666;">${p.ruolo} (${p.team})</div>
+                                    ${p.dettaglio ? `<div style="font-size: 0.8em; color: #888; margin-top: 5px;">${p.dettaglio.join(', ')}</div>` : ''}
+                                </div>
+                                <div style="font-size: 1.5em; font-weight: bold; color: ${getTeamColor(p.team)};">
+                                    +${p.punti}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : ''}
+
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button onclick="restartLupusGame(); closeGameEndModal();" style="background: #27ae60; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+                    🔄 Nuova Partita
+                </button>
+                <button onclick="closeGameEndModal();" style="background: #95a5a6; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+                    ✅ Chiudi
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Chiudi cliccando fuori
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeGameEndModal();
+        }
+    });
+}
+
+function closeGameEndModal() {
+    const modal = document.querySelector('.game-end-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Funzione per mostrare controlli di fine partita avanzati
+function showAdvancedEndControls() {
+    const modal = document.createElement('div');
+    modal.className = 'advanced-end-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+    `;
+
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 20px; padding: 30px; max-width: 500px; width: 90%;">
+            <h3 style="color: #333; margin-bottom: 20px; text-align: center;">🎮 Opzioni Fine Partita</h3>
+
+            <div style="margin-bottom: 20px;">
+                <p style="color: #666; text-align: center; margin-bottom: 20px;">
+                    Scegli come terminare la partita:
+                </p>
+
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <button onclick="executeEndGame(false); closeAdvancedEndModal();"
+                            style="background: #3498db; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+                        🏁 Fine Naturale
+                        <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">
+                            Termina seguendo le regole (controlla vincitore automaticamente)
+                        </div>
+                    </button>
+
+                    <button onclick="forceEndLupusGame('lupi'); closeAdvancedEndModal();"
+                            style="background: #e74c3c; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+                        🐺 Vittoria Lupi
+                        <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">
+                            Dichiara vincitori i lupi
+                        </div>
+                    </button>
+
+                    <button onclick="forceEndLupusGame('cittadini'); closeAdvancedEndModal();"
+                            style="background: #3498db; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+                        👥 Vittoria Cittadini
+                        <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">
+                            Dichiara vincitori i cittadini
+                        </div>
+                    </button>
+
+                    <button onclick="forceEndLupusGame('pareggio'); closeAdvancedEndModal();"
+                            style="background: #f39c12; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+                        ⚖️ Pareggio
+                        <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">
+                            Termina senza vincitori (punti minimi)
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <div style="text-align: center;">
+                <button onclick="closeAdvancedEndModal();"
+                        style="background: #95a5a6; color: white; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer;">
+                    Annulla
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+}
+
+function closeAdvancedEndModal() {
+    const modal = document.querySelector('.advanced-end-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Aggiorna i controlli di fase per includere opzioni avanzate
+function updatePhaseControls(gameData) {
+    const phaseControlsSection = document.getElementById('phase-controls-section');
+
+    if (!gameData.game_active) {
+        phaseControlsSection.style.display = 'none';
+        return;
+    }
+
+    phaseControlsSection.style.display = 'block';
+
+    // Aggiungi pulsante per controlli avanzati se non esiste
+    if (!document.getElementById('advanced-end-btn')) {
+        const advancedBtn = document.createElement('button');
+        advancedBtn.id = 'advanced-end-btn';
+        advancedBtn.className = 'btn';
+        advancedBtn.style.cssText = 'background: #9b59b6; color: white; margin-top: 10px; width: 100%;';
+        advancedBtn.innerHTML = '⚙️ Opzioni Avanzate';
+        advancedBtn.onclick = showAdvancedEndControls;
+
+        // Inserisci prima del pulsante termina partita esistente
+        const terminaBtn = phaseControlsSection.querySelector('button[onclick*="endLupusGame"]');
+        if (terminaBtn) {
+            terminaBtn.parentNode.insertBefore(advancedBtn, terminaBtn);
+        }
+    }
+}
+
+// Funzione per ottenere il colore del team
+function getTeamColor(team) {
+    const colors = {
+        'lupi': '#e74c3c',
+        'cittadini': '#3498db',
+        'neutral': '#f39c12'
+    };
+    return colors[team] || '#95a5a6';
+}
+
+// Modifica la funzione di aggiornamento display esistente
+function updateGameDisplay(data) {
+    // ... codice esistente ...
+
+    // Aggiungi controlli avanzati
+    updatePhaseControls(data);
+
+    // Se la partita è terminata, mostra pulsante per riavviare
+    if (data.game_active && data.fase_corrente === 'ended') {
+        showRestartButton();
+    }
+}
+
+function showRestartButton() {
+    const setupSection = document.getElementById('setup-section');
+    if (setupSection && !document.getElementById('restart-section')) {
+        const restartSection = document.createElement('div');
+        restartSection.id = 'restart-section';
+        restartSection.className = 'controls-section';
+        restartSection.innerHTML = `
+            <h3>🔄 Partita Terminata</h3>
+            <button class="btn btn-success" onclick="restartLupusGame()" style="width: 100%; margin-bottom: 10px;">
+                🚀 Riavvia Lupus
+            </button>
+            <button class="btn btn-secondary" onclick="location.reload()" style="width: 100%;">
+                🏠 Torna al Menu
+            </button>
+        `;
+        setupSection.parentNode.insertBefore(restartSection, setupSection);
+        setupSection.style.display = 'none';
+    }
+}
+
+// Funzione per mostrare statistiche dettagliate della partita
+function showGameSummary(partitaId) {
+    fetch(`/api/gamemaster/lupus-game-summary/${partitaId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                showNotification(data.error, 'error');
+                return;
+            }
+
+            const modal = document.createElement('div');
+            modal.className = 'game-summary-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 20px; padding: 30px; max-width: 800px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                    <h2 style="color: #333; margin-bottom: 20px; text-align: center;">📊 Riassunto Partita #${data.partita.id}</h2>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 1.5em; font-weight: bold; color: #333;">${data.partita.vincitore || 'Pareggio'}</div>
+                            <div style="color: #666;">Vincitore</div>
+                        </div>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 1.5em; font-weight: bold; color: #333;">${data.partita.turni_totali}</div>
+                            <div style="color: #666;">Turni</div>
+                        </div>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 1.5em; font-weight: bold; color: #333;">${data.partita.durata_minuti}m</div>
+                            <div style="color: #666;">Durata</div>
+                        </div>
+                    </div>
+
+                    <h3 style="color: #333; margin-bottom: 15px;">👥 Giocatori</h3>
+                    <div style="margin-bottom: 30px; max-height: 300px; overflow-y: auto;">
+                        ${data.giocatori.map(g => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 5px; background: ${g.era_bot ? '#fff3cd' : '#f8f9fa'}; border-radius: 8px; border-left: 4px solid ${getTeamColor(g.team)};">
+                                <div>
+                                    <span style="font-weight: bold;">${g.era_bot ? '🤖 ' : ''}${g.nome}</span>
+                                    <span style="color: #666; margin-left: 10px;">${g.ruolo}</span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-weight: bold; color: ${g.punti_ottenuti > 0 ? '#27ae60' : '#95a5a6'};">
+                                        ${g.punti_ottenuti > 0 ? '+' : ''}${g.punti_ottenuti} pt
+                                    </div>
+                                    <div style="font-size: 0.8em; color: #666;">
+                                        ${g.stato_finale}${g.morte_turno ? ` (T${g.morte_turno})` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div style="text-align: center;">
+                        <button onclick="this.parentElement.parentElement.parentElement.remove();"
+                                style="background: #3498db; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+                            ✅ Chiudi
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+        })
+        .catch(error => {
+            showNotification('Errore caricamento riassunto', 'error');
+        });
+}
+
+// Aggiungi event listener per aggiornamenti automatici
+document.addEventListener('DOMContentLoaded', function() {
+    // Aggiorna ogni 5 secondi se siamo nella pagina gamemaster
+    if (window.location.pathname.includes('gamemaster') || window.location.pathname.includes('lupus')) {
+        setInterval(() => {
+            if (document.querySelector('#lupus-tab, .lupus-controls')) {
+                loadGameStatus();
+            }
+        }, 5000);
+    }
+});
