@@ -1718,8 +1718,8 @@ def start_lupus_game():
         """)
         available_players = cursor.fetchall()
 
-        if len(available_players) < 6:
-            return jsonify({'error': 'Servono almeno 6 giocatori per Lupus'})
+        if len(available_players) < 1:
+            return jsonify({'error': 'Servono almeno 1 giocatori per Lupus'})
 
         # Ottieni configurazione
         if config_id:
@@ -1744,7 +1744,7 @@ def start_lupus_game():
             durata_votazione = custom_config.get('durata_votazione', 90)
 
         # Calcola numero totale giocatori necessari
-        total_players_needed = sum(ruoli_config.values())
+        total_players_needed = 1
         if len(available_players) < total_players_needed:
             return jsonify({
                 'error': f'Servono {total_players_needed} giocatori, disponibili: {len(available_players)}'
