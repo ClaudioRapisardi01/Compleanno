@@ -705,499 +705,90 @@
         </div>
     </div>
 
-    <script>
-        let gameData = null;
-        let selectedTarget = null;
-        let refreshInterval = null;
-        let phaseEndTime = null;
+    <script>// ========================================
+// LUPUS IN FABULA - JAVASCRIPT COMPLETO
+// Versione con timer automatico da 30 secondi
+// ========================================
 
-        // Inizializzazione
-        window.onload = function() {
-            loadGameStatus();
-            startPeriodicUpdates();
-        };
+let gameData = null;
+let selectedTarget = null;
+let refreshInterval = null;
+let lastPhase = null;
+let lastTurn = null;
 
-        // Carica stato del gioco
-        function loadGameStatus() {
-            fetch('/api/lupus-player-status')
-                .then(response => response.json())
-                .then(data => {
-                    gameData = data;
-                    updateGameDisplay(data);
-                })
-                .catch(error => {
-                    console.error('Errore caricamento stato:', error);
-                    showStatus('Errore di connessione', 'waiting-status');
-                });
+// INIZIALIZZAZIONE
+document.addEventListener('DOMContentLoaded', function() {
+    addTimerAnimations();
+    loadGameStatus();
+    startPeriodicUpdates();
+
+    // Messaggio di benvenuto con nuovo sistema
+    showResult('🚀 Sistema aggiornato: Timer da 30 secondi e avanzamento automatico!', 'success');
+});
+
+// AGGIORNA CSS PER ANIMAZIONI TIMER
+function addTimerAnimations() {
+    const timerAnimationCSS = `
+        <style id="timer-animations">
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
+            100% { opacity: 1; transform: scale(1); }
         }
 
-        // Aggiorna display del gioco
-        function updateGameDisplay(data) {
-            const gameStatus = document.getElementById('game-status');
-            const gameArea = document.getElementById('game-area');
-            const roleInfo = document.getElementById('role-info');
-            const wolvesChat = document.getElementById('wolves-chat');
-
-            if (!data.in_game) {
-                gameStatus.style.display = 'block';
-                gameArea.style.display = 'none';
-                roleInfo.style.display = 'none';
-                wolvesChat.style.display = 'none';
-                gameStatus.className = 'game-status waiting-status';
-                gameStatus.innerHTML = `
-                    <h3>⏳ ${data.message || 'Non sei in una partita attiva'}</h3>
-                    <p>Aspettando che il gamemaster avvii Lupus in Fabula...</p>
-                `;
-                return;
-            }
-
-            // Gioco attivo
-            gameStatus.style.display = 'none';
-            roleInfo.style.display = 'block';
-
-            // Aggiorna info ruolo
-            updateRoleInfo(data.ruolo, data.stato_player);
-
-            // Mostra chat lupi se necessario
-            if (data.ruolo.team === 'lupi' && data.stato_player === 'vivo') {
-                wolvesChat.style.display = 'block';
-                updateWolvesList(data.altri_lupi);
-            } else {
-                wolvesChat.style.display = 'none';
-            }
-
-            // Aggiorna area di gioco
-            if (data.stato_player === 'vivo') {
-                gameArea.style.display = 'block';
-                updateGameArea(data);
-            } else {
-                gameArea.style.display = 'none';
-                showDeathMessage(data.stato_player);
-            }
-
-            // Aggiorna timer
-            updateTimer(data.tempo_rimanente, data.fase_corrente);
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
         }
 
-        function updateRoleInfo(ruolo, statoPlayer) {
-            document.getElementById('role-emoji').textContent = ruolo.emoji;
-            document.getElementById('role-name').textContent = ruolo.nome;
-            document.getElementById('role-description').textContent = ruolo.descrizione;
-
-            const teamElement = document.getElementById('role-team');
-            teamElement.textContent = ruolo.team.charAt(0).toUpperCase() + ruolo.team.slice(1);
-            teamElement.className = `role-team team-${ruolo.team}`;
-
-            const roleInfoElement = document.getElementById('role-info');
-            roleInfoElement.className = `role-info ${ruolo.team}`;
-
-            if (statoPlayer !== 'vivo') {
-                roleInfoElement.style.opacity = '0.6';
-                roleInfoElement.style.filter = 'grayscale(70%)';
-            }
+        .timer-container.warning {
+            background: linear-gradient(45deg, #f39c12, #e67e22) !important;
+            box-shadow: 0 0 15px rgba(243, 156, 18, 0.6);
+            border: 2px solid #f39c12;
         }
 
-        function updateWolvesList(otherWolves) {
-            const list = document.getElementById('wolves-list');
-            list.innerHTML = '';
-
-            otherWolves.forEach(wolf => {
-                const item = document.createElement('div');
-                item.className = 'wolf-item';
-
-                const photoHtml = wolf.foto_profilo ?
-                    `<img src="/static/uploads/${wolf.foto_profilo}" alt="${wolf.nome}">` :
-                    `<span>${wolf.nome.charAt(0)}</span>`;
-
-                item.innerHTML = `
-                    <div class="wolf-photo">${photoHtml}</div>
-                    <span>${wolf.nome}</span>
-                `;
-
-                list.appendChild(item);
-            });
-
-            if (otherWolves.length === 0) {
-                list.innerHTML = '<div class="wolf-item"><span>🐺 Sei l\'unico lupo rimasto!</span></div>';
-            }
+        .timer-container.danger {
+            background: linear-gradient(45deg, #e74c3c, #c0392b) !important;
+            box-shadow: 0 0 20px rgba(231, 76, 60, 0.8);
+            border: 2px solid #fff;
+            color: white !important;
+            font-weight: bold;
         }
 
-        function updateGameArea(data) {
-            const phase = data.fase_corrente;
-            const ruolo = data.ruolo;
-            const haFattoAzione = data.ha_fatto_azione;
-            const haVotato = data.ha_votato;
-
-            let canAct = false;
-            let actionTitle = '';
-            let actionButtonText = '';
-            let actionButtonClass = '';
-
-            if (phase === 'night' && ruolo.azione_notturna && !haFattoAzione) {
-                canAct = true;
-                if (ruolo.team === 'lupi') {
-                    actionTitle = '🔪 Scegli chi eliminare stanotte';
-                    actionButtonText = 'Elimina Giocatore';
-                    actionButtonClass = 'action-btn';
-                } else if (ruolo.nome === 'Veggente') {
-                    actionTitle = '🔮 Scegli chi investigare';
-                    actionButtonText = 'Investiga Giocatore';
-                    actionButtonClass = 'action-btn investigate';
-                } else if (ruolo.nome === 'Guardia') {
-                    actionTitle = '🛡️ Scegli chi proteggere';
-                    actionButtonText = 'Proteggi Giocatore';
-                    actionButtonClass = 'action-btn protect';
-                }
-            } else if (phase === 'voting' && !haVotato) {
-                canAct = true;
-                actionTitle = '⚖️ Vota chi eliminare';
-                actionButtonText = 'Vota Giocatore';
-                actionButtonClass = 'action-btn vote';
-            }
-
-            if (canAct) {
-                document.getElementById('action-title').textContent = actionTitle;
-                document.getElementById('action-btn').textContent = actionButtonText;
-                document.getElementById('action-btn').className = actionButtonClass;
-                document.getElementById('actions-section').style.display = 'block';
-                updatePlayersGrid(data.altri_giocatori, phase, ruolo);
-            } else {
-                showWaitingMessage(phase, haFattoAzione, haVotato);
-            }
+        .result-message.warning {
+            background-color: #f39c12;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 5px 0;
+            font-weight: bold;
+            animation: slideIn 0.3s ease-out;
         }
 
-        function updatePlayersGrid(players, phase, ruolo) {
-            const grid = document.getElementById('players-grid');
-            grid.innerHTML = '';
-
-            players.forEach(player => {
-                const option = document.createElement('div');
-                option.className = 'player-option';
-
-                if (player.stato !== 'vivo') {
-                    option.classList.add('dead');
-                }
-
-                // Per lupi, non possono attaccare altri lupi
-                if (phase === 'night' && ruolo.team === 'lupi') {
-                    // Qui dovremmo controllare se il player è un lupo, ma non abbiamo questa info
-                    // Il server dovrebbe filtrare automaticamente
-                }
-
-                const photoHtml = player.foto_profilo ?
-                    `<img src="/static/uploads/${player.foto_profilo}" alt="${player.nome}">` :
-                    `<span>${player.nome.charAt(0)}</span>`;
-
-                option.innerHTML = `
-                    <div class="player-photo">${photoHtml}</div>
-                    <div class="player-name">${player.nome}</div>
-                    <div class="player-status">${player.stato}</div>
-                `;
-
-                if (player.stato === 'vivo') {
-                    option.onclick = () => selectTarget(player.id, option);
-                }
-
-                grid.appendChild(option);
-            });
+        @keyframes slideIn {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
+        </style>
+    `;
 
-        function selectTarget(playerId, element) {
-            // Rimuovi selezione precedente
-            document.querySelectorAll('.player-option').forEach(opt => {
-                opt.classList.remove('selected');
-            });
-
-            // Seleziona nuovo target
-            element.classList.add('selected');
-            selectedTarget = playerId;
-            document.getElementById('action-btn').disabled = false;
-        }
-
-        function executeAction() {
-            if (!selectedTarget || !gameData) return;
-
-            const phase = gameData.fase_corrente;
-            const ruolo = gameData.ruolo;
-
-            let actionType = '';
-            if (phase === 'night') {
-                if (ruolo.team === 'lupi') actionType = 'kill';
-                else if (ruolo.nome === 'Veggente') actionType = 'investigate';
-                else if (ruolo.nome === 'Guardia') actionType = 'protect';
-            } else if (phase === 'voting') {
-                submitVote();
-                return;
-            }
-
-            if (!actionType) return;
-
-            // Disabilita pulsante
-            const btn = document.getElementById('action-btn');
-            btn.disabled = true;
-            btn.textContent = 'Invio...';
-
-            fetch('/api/lupus-action', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action_type: actionType,
-                    target_id: selectedTarget
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showResult('✅ Azione registrata!', 'success');
-                    setTimeout(() => {
-                        loadGameStatus();
-                    }, 1000);
-                } else {
-                    showResult(`❌ ${data.error}`, 'error');
-                    btn.disabled = false;
-                    btn.textContent = getActionButtonText();
-                }
-            })
-            .catch(error => {
-                showResult('🔌 Errore di connessione', 'error');
-                btn.disabled = false;
-                btn.textContent = getActionButtonText();
-            });
-        }
-
-        function submitVote() {
-            if (!selectedTarget) return;
-
-            const btn = document.getElementById('action-btn');
-            btn.disabled = true;
-            btn.textContent = 'Votando...';
-
-            fetch('/api/lupus-vote', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    target_id: selectedTarget
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const voteWeight = data.peso_voto > 1 ? ` (voto doppio!)` : '';
-                    showResult(`🗳️ Voto registrato!${voteWeight}`, 'success');
-                    setTimeout(() => {
-                        loadGameStatus();
-                    }, 1000);
-                } else {
-                    showResult(`❌ ${data.error}`, 'error');
-                    btn.disabled = false;
-                    btn.textContent = 'Vota Giocatore';
-                }
-            })
-            .catch(error => {
-                showResult('🔌 Errore di connessione', 'error');
-                btn.disabled = false;
-                btn.textContent = 'Vota Giocatore';
-            });
-        }
-
-        function showWaitingMessage(phase, haFattoAzione, haVotato) {
-            const actionsSection = document.getElementById('actions-section');
-            actionsSection.style.display = 'block';
-
-            let message = '';
-            if (phase === 'night') {
-                if (haFattoAzione) {
-                    message = '🌙 Hai già fatto la tua azione. Aspetta che finisca la notte...';
-                } else {
-                    message = '🌙 È notte, ma non hai azioni speciali. Aspetta l\'alba...';
-                }
-            } else if (phase === 'day') {
-                message = '☀️ È giorno! Discutete e preparatevi per la votazione...';
-            } else if (phase === 'voting') {
-                if (haVotato) {
-                    message = '🗳️ Hai già votato. Aspetta il risultato...';
-                } else {
-                    message = '⚠️ Errore: dovresti poter votare...';
-                }
-            }
-
-            document.getElementById('action-title').textContent = message;
-            document.getElementById('players-grid').innerHTML = '';
-            document.getElementById('action-btn').style.display = 'none';
-        }
-
-        function showDeathMessage(stato) {
-            const gameArea = document.getElementById('game-area');
-            gameArea.style.display = 'block';
-
-            let message = '';
-            let emoji = '';
-            if (stato === 'morto') {
-                message = 'Sei stato eliminato durante la notte! 💀';
-                emoji = '🌙';
-            } else if (stato === 'eliminato') {
-                message = 'Sei stato eliminato dalla votazione! ⚖️';
-                emoji = '🗳️';
-            }
-
-            gameArea.innerHTML = `
-                <div style="text-align: center; padding: 40px;">
-                    <div style="font-size: 4em; margin-bottom: 20px;">${emoji}</div>
-                    <h2 style="color: #e74c3c; margin-bottom: 20px;">${message}</h2>
-                    <p style="font-size: 1.2em; opacity: 0.8;">Puoi continuare a seguire la partita, ma non puoi più partecipare.</p>
-                </div>
-            `;
-        }
-
-        function updateTimer(timeRemaining, phase) {
-            const timer = document.getElementById('timer');
-
-            if (timeRemaining <= 0) {
-                timer.textContent = '⏱️ 00:00';
-                timer.className = 'timer-container danger';
-                return;
-            }
-
-            const minutes = Math.floor(timeRemaining / 60);
-            const seconds = Math.floor(timeRemaining % 60);
-            const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-            const phaseEmoji = {
-                'night': '🌙',
-                'day': '☀️',
-                'voting': '🗳️',
-                'setup': '⚙️'
-            }[phase] || '⏱️';
-
-            timer.textContent = `${phaseEmoji} ${timeStr}`;
-
-            // Cambia colore in base al tempo
-            if (timeRemaining <= 10) {
-                timer.className = 'timer-container danger';
-            } else if (timeRemaining <= 30) {
-                timer.className = 'timer-container warning';
-            } else {
-                timer.className = 'timer-container';
-            }
-        }
-
-        function showResult(message, type) {
-            const resultDiv = document.getElementById('result-messages');
-            const messageElement = document.createElement('div');
-            messageElement.className = `result-message result-${type}`;
-            messageElement.textContent = message;
-
-            resultDiv.appendChild(messageElement);
-
-            // Rimuovi dopo 5 secondi
-            setTimeout(() => {
-                if (resultDiv.contains(messageElement)) {
-                    resultDiv.removeChild(messageElement);
-                }
-            }, 5000);
-        }
-
-        // Aggiornamenti periodici
-        function startPeriodicUpdates() {
-            refreshInterval = setInterval(() => {
-                loadGameStatus();
-            }, 3000); // Ogni 3 secondi
-        }
-
-        // Refresh manuale
-        function refreshGame() {
-            loadGameStatus();
-            showNotification('Gioco aggiornato!');
-        }
-
-        // Utility functions
-        function showStatus(message, className = 'waiting-status') {
-            const gameStatus = document.getElementById('game-status');
-            gameStatus.className = `game-status ${className}`;
-            gameStatus.innerHTML = `<h3>${message}</h3>`;
-        }
-
-        function showNotification(message, type = 'success') {
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.textContent = message;
-            document.body.appendChild(notification);
-
-            setTimeout(() => notification.classList.add('show'), 100);
-            setTimeout(() => {
-                notification.classList.remove('show');
-                setTimeout(() => document.body.removeChild(notification), 400);
-            }, 3000);
-        }
-
-        function getActionButtonText() {
-            if (!gameData) return 'Conferma Azione';
-
-            const phase = gameData.fase_corrente;
-            const ruolo = gameData.ruolo;
-
-            if (phase === 'night') {
-                if (ruolo.team === 'lupi') return 'Elimina Giocatore';
-                if (ruolo.nome === 'Veggente') return 'Investiga Giocatore';
-                if (ruolo.nome === 'Guardia') return 'Proteggi Giocatore';
-            } else if (phase === 'voting') {
-                return 'Vota Giocatore';
-            }
-
-            return 'Conferma Azione';
-        }
-
-        // Gestione visibilità pagina
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden) {
-                if (refreshInterval) {
-                    clearInterval(refreshInterval);
-                }
-            } else {
-                startPeriodicUpdates();
-                loadGameStatus();
-            }
-        });
-
-        // Cleanup quando si lascia la pagina
-        window.addEventListener('beforeunload', function() {
-            if (refreshInterval) {
-                clearInterval(refreshInterval);
-            }
-        });
-
-        // Gestione tasti rapidi
-        document.addEventListener('keydown', function(e) {
-            // F5 per refresh
-            if (e.key === 'F5') {
-                e.preventDefault();
-                refreshGame();
-            }
-
-            // Spazio per confermare azione
-            if (e.code === 'Space' && selectedTarget && !document.getElementById('action-btn').disabled) {
-                e.preventDefault();
-                executeAction();
-            }
-        });
-        // AGGIUNGI QUESTO CODICE AI FILE JAVASCRIPT DI LUPUS
-
-// 1. NEL FILE lupus_in_fabula.html - Modifica la funzione startPeriodicUpdates
-function startPeriodicUpdates() {
-    // Controllo più frequente per velocizzare il gioco
-    refreshInterval = setInterval(() => {
-        loadGameStatus();
-
-        // Controllo automatico per avanzamento fasi
-        checkAutoAdvancement();
-    }, 2000); // Ogni 2 secondi invece di 3
+    // Inserisci CSS nel head se non esiste già
+    if (!document.getElementById('timer-animations')) {
+        document.head.insertAdjacentHTML('beforeend', timerAnimationCSS);
+    }
 }
 
-// 2. NUOVA FUNZIONE per controllo automatico
+// CONTROLLO AUTOMATICO OGNI 2 SECONDI
+function startPeriodicUpdates() {
+    // Controllo ogni 2 secondi per risposta più rapida
+    refreshInterval = setInterval(() => {
+        loadGameStatus();
+        // Controllo automatico per avanzamento fasi
+        checkAutoAdvancement();
+    }, 2000);
+}
+
+// CONTROLLO AUTOMATICO AVANZAMENTO
 function checkAutoAdvancement() {
     fetch('/api/lupus-auto-check', {
         method: 'POST',
@@ -1207,24 +798,328 @@ function checkAutoAdvancement() {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.status === 'phase_advanced' || data.status === 'auto_advanced') {
-            // Fase avanzata, ricarica immediatamente
+        if (data.status === 'phase_advanced') {
+            // Tempo scaduto, fase avanzata automaticamente
             loadGameStatus();
-
-            if (data.status === 'phase_advanced') {
-                showResult('⏰ Tempo scaduto! Fase avanzata automaticamente', 'info');
-            } else {
-                showResult('✅ Tutti hanno completato le azioni! Avanzamento automatico', 'success');
-            }
+            showResult('⏰ Tempo scaduto! Fase avanzata automaticamente (30s)', 'warning');
+        } else if (data.status === 'auto_advanced') {
+            // Tutti hanno completato, avanzamento rapido
+            loadGameStatus();
+            showResult('✅ Tutti hanno completato! Avanzamento automatico', 'success');
         }
     })
     .catch(error => {
-        // Errore silenzioso per non disturbare l'esperienza utente
+        // Errore silenzioso per non disturbare l'esperienza
         console.log('Controllo automatico fallito:', error);
     });
 }
 
-// 3. MODIFICA alla funzione submitAction per avanzamento rapido
+// CARICAMENTO STATO GIOCO
+function loadGameStatus() {
+    fetch('/api/lupus-status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                gameData = data;
+
+                // Aggiorna interfaccia in base allo stato
+                if (data.stato === 'morto' || data.stato === 'eliminato') {
+                    showDeadPlayerInterface(data.stato);
+                } else if (data.stato === 'ended') {
+                    showGameEndedInterface(data);
+                } else {
+                    updateGameInterface(data);
+                }
+
+                // Notifica cambio fase
+                if (lastPhase && lastPhase !== data.fase_corrente) {
+                    notifyPhaseChange(data.fase_corrente);
+                }
+                lastPhase = data.fase_corrente;
+                lastTurn = data.turno_numero;
+
+            } else {
+                showError('❌ Errore caricamento stato: ' + data.error);
+            }
+        })
+        .catch(error => {
+            showError('🔌 Errore di connessione');
+            console.error('Errore:', error);
+        });
+}
+
+// AGGIORNAMENTO INTERFACCIA PRINCIPALE
+function updateGameInterface(data) {
+    // Aggiorna header informazioni
+    updateGameHeader(data);
+
+    // Aggiorna timer
+    if (data.tempo_rimanente !== undefined) {
+        updateTimer(data.tempo_rimanente, data.fase_corrente);
+
+        // Promemoria urgenti
+        urgentActionReminder(data.tempo_rimanente);
+    }
+
+    // Aggiorna contenuto in base alla fase
+    const gameArea = document.getElementById('game-area');
+
+    if (data.fase_corrente === 'night') {
+        if (data.ruolo.team === 'lupi' || ['Veggente', 'Guardia'].includes(data.ruolo.nome)) {
+            if (data.ha_fatto_azione) {
+                showWaitingMessage('night', true, false);
+            } else {
+                showNightActionInterface(data);
+            }
+        } else {
+            showWaitingMessage('night', false, false);
+        }
+    } else if (data.fase_corrente === 'day') {
+        showDayInterface(data);
+    } else if (data.fase_corrente === 'voting') {
+        if (data.ha_votato) {
+            showWaitingMessage('voting', false, true);
+        } else {
+            showVotingInterface(data);
+        }
+    } else if (data.fase_corrente === 'setup') {
+        showWaitingForPlayersInterface(data);
+    }
+
+    // Aggiorna lista eventi
+    updateEventsList(data.eventi_recenti);
+}
+
+// AGGIORNAMENTO HEADER
+function updateGameHeader(data) {
+    document.getElementById('player-name').textContent = data.nome;
+    document.getElementById('player-role').textContent = data.ruolo.nome;
+    document.getElementById('player-role').className = `role-badge ${data.ruolo.team}`;
+    document.getElementById('turn-number').textContent = `Turno ${data.turno_numero}`;
+    document.getElementById('players-alive').textContent = `${data.giocatori_vivi}/${data.totale_giocatori} vivi`;
+}
+
+// TIMER AGGRESSIVO CON ANIMAZIONI
+function updateTimer(timeRemaining, phase) {
+    const timer = document.getElementById('timer');
+
+    if (timeRemaining <= 0) {
+        timer.textContent = '⏱️ TEMPO SCADUTO!';
+        timer.className = 'timer-container danger';
+        timer.style.animation = 'blink 0.5s infinite';
+        return;
+    }
+
+    const minutes = Math.floor(timeRemaining / 60);
+    const seconds = Math.floor(timeRemaining % 60);
+    const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+    const phaseEmoji = {
+        'night': '🌙',
+        'day': '☀️',
+        'voting': '🗳️',
+        'setup': '⚙️'
+    }[phase] || '⏱️';
+
+    timer.textContent = `${phaseEmoji} ${timeStr}`;
+
+    // Timer aggressivo per spingere all'azione (30 secondi totali)
+    if (timeRemaining <= 5) {
+        timer.className = 'timer-container danger';
+        timer.style.animation = 'pulse 0.3s infinite';
+        timer.style.fontSize = '1.3em';
+    } else if (timeRemaining <= 10) {
+        timer.className = 'timer-container warning';
+        timer.style.animation = 'pulse 0.6s infinite';
+        timer.style.fontSize = '1.2em';
+    } else if (timeRemaining <= 15) {
+        timer.className = 'timer-container warning';
+        timer.style.animation = 'pulse 1s infinite';
+        timer.style.fontSize = '1.1em';
+    } else {
+        timer.className = 'timer-container';
+        timer.style.animation = 'none';
+        timer.style.fontSize = '1em';
+    }
+}
+
+// PROMEMORIA URGENTI
+function urgentActionReminder(timeLeft) {
+    if (timeLeft <= 10 && timeLeft > 0 && gameData) {
+        const phase = gameData.fase_corrente;
+        let actionNeeded = '';
+
+        if (phase === 'night' && gameData.ruolo?.team === 'lupi' && !gameData.ha_fatto_azione) {
+            actionNeeded = 'SCEGLI CHI ELIMINARE!';
+        } else if (phase === 'night' && gameData.ruolo?.nome === 'Veggente' && !gameData.ha_fatto_azione) {
+            actionNeeded = 'SCEGLI CHI INVESTIGARE!';
+        } else if (phase === 'night' && gameData.ruolo?.nome === 'Guardia' && !gameData.ha_fatto_azione) {
+            actionNeeded = 'SCEGLI CHI PROTEGGERE!';
+        } else if (phase === 'voting' && !gameData.ha_votato) {
+            actionNeeded = 'VOTA ADESSO!';
+        }
+
+        if (actionNeeded) {
+            showResult(`🚨 ${timeLeft}s rimasti - ${actionNeeded}`, 'warning');
+        }
+    }
+}
+
+// INTERFACCE PER DIVERSE FASI
+
+// INTERFACCIA NOTTE
+function showNightActionInterface(data) {
+    const actionsSection = document.getElementById('actions-section');
+    actionsSection.style.display = 'block';
+
+    let actionTitle = '';
+    let actionDescription = '';
+
+    if (data.ruolo.team === 'lupi') {
+        actionTitle = '🐺 Azione Lupi';
+        actionDescription = 'Scegli chi eliminare questa notte (30 secondi!)';
+    } else if (data.ruolo.nome === 'Veggente') {
+        actionTitle = '🔮 Visione';
+        actionDescription = 'Scegli chi investigare per scoprire il suo ruolo (30 secondi!)';
+    } else if (data.ruolo.nome === 'Guardia') {
+        actionTitle = '🛡️ Protezione';
+        actionDescription = 'Scegli chi proteggere dagli attacchi (30 secondi!)';
+    }
+
+    actionsSection.innerHTML = `
+        <div class="actions-container">
+            <h3>${actionTitle}</h3>
+            <p style="color: #e67e22; font-weight: bold; margin-bottom: 20px;">⚡ ${actionDescription}</p>
+            <div id="target-selection" class="target-grid">
+                ${data.altri_giocatori.map(player => `
+                    <div class="player-card ${player.stato}" onclick="selectTarget(${player.id})">
+                        <div class="player-name">${player.nome}</div>
+                        <div class="player-status">${player.stato === 'vivo' ? '✅ Vivo' : '💀 Morto'}</div>
+                    </div>
+                `).join('')}
+            </div>
+            <button id="action-btn" onclick="submitAction()" disabled>
+                ${getActionButtonText()}
+            </button>
+        </div>
+    `;
+}
+
+// INTERFACCIA GIORNO
+function showDayInterface(data) {
+    const actionsSection = document.getElementById('actions-section');
+    actionsSection.style.display = 'block';
+
+    actionsSection.innerHTML = `
+        <div class="actions-container">
+            <h3>☀️ Discussione Diurna</h3>
+            <p style="color: #e67e22; font-weight: bold; margin-bottom: 20px;">
+                💬 Avete solo 30 secondi per discutere prima della votazione!
+            </p>
+            <div style="background: rgba(52, 152, 219, 0.1); padding: 20px; border-radius: 10px; text-align: center;">
+                <h4 style="color: #3498db; margin-bottom: 15px;">🎯 Situazione Attuale</h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 15px;">
+                    <div style="background: rgba(46, 204, 113, 0.2); padding: 10px; border-radius: 8px;">
+                        <strong>${data.giocatori_vivi}</strong><br>
+                        <small>Vivi</small>
+                    </div>
+                    <div style="background: rgba(231, 76, 60, 0.2); padding: 10px; border-radius: 8px;">
+                        <strong>${data.totale_giocatori - data.giocatori_vivi}</strong><br>
+                        <small>Morti</small>
+                    </div>
+                    <div style="background: rgba(155, 89, 182, 0.2); padding: 10px; border-radius: 8px;">
+                        <strong>T${data.turno_numero}</strong><br>
+                        <small>Turno</small>
+                    </div>
+                </div>
+                <p style="font-size: 1.1em; margin: 0;">
+                    Usate il tempo per discutere chi sospettate!<br>
+                    <span style="color: #e74c3c; font-weight: bold;">Tra poco si vota!</span>
+                </p>
+            </div>
+        </div>
+    `;
+}
+
+// INTERFACCIA VOTAZIONE
+function showVotingInterface(data) {
+    const actionsSection = document.getElementById('actions-section');
+    actionsSection.style.display = 'block';
+
+    actionsSection.innerHTML = `
+        <div class="actions-container">
+            <h3>🗳️ Votazione</h3>
+            <p style="color: #e74c3c; font-weight: bold; margin-bottom: 20px;">
+                ⚡ Chi volete eliminare? Avete solo 30 secondi per decidere!
+            </p>
+            <div id="target-selection" class="target-grid">
+                ${data.altri_giocatori.filter(p => p.stato === 'vivo').map(player => `
+                    <div class="player-card votable" onclick="selectTarget(${player.id})">
+                        <div class="player-name">${player.nome}</div>
+                        <div class="player-status">👤 Candidato</div>
+                    </div>
+                `).join('')}
+            </div>
+            <button id="action-btn" onclick="submitVote()" disabled>
+                Vota Giocatore
+            </button>
+        </div>
+    `;
+}
+
+// INTERFACCIA ATTESA
+function showWaitingMessage(phase, haFattoAzione, haVotato) {
+    const actionsSection = document.getElementById('actions-section');
+    actionsSection.style.display = 'block';
+
+    let message = '';
+    let timeInfo = 'Avanzamento automatico in max 30 secondi!';
+
+    if (phase === 'night') {
+        if (haFattoAzione) {
+            message = '🌙 Azione completata! Aspettando gli altri...';
+            timeInfo = 'Se tutti completano, si avanza subito!';
+        } else {
+            message = '🌙 È notte, rilassati e aspetta...';
+            timeInfo = 'I ruoli speciali stanno agendo (30s max)';
+        }
+    } else if (phase === 'day') {
+        message = '☀️ Discussione in corso - Decidete in fretta!';
+        timeInfo = 'Solo 30 secondi per discutere, poi si vota!';
+    } else if (phase === 'voting') {
+        if (haVotato) {
+            message = '🗳️ Voto registrato! Aspettando gli altri...';
+            timeInfo = 'Se tutti votano, si procede immediatamente!';
+        } else {
+            message = '🗳️ Tempo di votare!';
+            timeInfo = 'Solo 30 secondi per votare, poi si va avanti!';
+        }
+    }
+
+    actionsSection.innerHTML = `
+        <div style="text-align: center; padding: 25px; background: rgba(52, 152, 219, 0.1); border-radius: 15px; border: 2px solid #3498db;">
+            <h3 style="color: #3498db; margin-bottom: 10px;">${message}</h3>
+            <p style="font-size: 1.1em; color: #e67e22; font-weight: bold; margin-bottom: 15px;">
+                ⚡ ${timeInfo}
+            </p>
+            <div style="background: rgba(231, 76, 60, 0.1); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                <p style="color: #e74c3c; font-weight: bold; margin: 0;">
+                    🚨 NUOVO: Timer veloce da 30 secondi per tutte le fasi!
+                </p>
+                <p style="color: #e74c3c; margin: 5px 0 0 0; font-size: 0.9em;">
+                    Chi non agisce in tempo perde il turno
+                </p>
+            </div>
+            <button onclick="loadGameStatus()" class="btn" style="background: #3498db; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                🔄 Aggiorna Stato
+            </button>
+        </div>
+    `;
+}
+
+// AZIONI RAPIDE CON CONTROLLO AUTOMATICO
+
+// AZIONE NOTTURNA
 function submitAction() {
     if (!selectedTarget) return;
 
@@ -1245,7 +1140,7 @@ function submitAction() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showResult('✅ Azione inviata!', 'success');
+            showResult('✅ Azione inviata! Controllo avanzamento...', 'success');
 
             // Controllo immediato per avanzamento automatico
             setTimeout(() => {
@@ -1266,7 +1161,7 @@ function submitAction() {
     });
 }
 
-// 4. MODIFICA alla funzione submitVote per avanzamento rapido
+// VOTAZIONE
 function submitVote() {
     if (!selectedTarget) return;
 
@@ -1287,7 +1182,7 @@ function submitVote() {
     .then(data => {
         if (data.success) {
             const voteWeight = data.peso_voto > 1 ? ` (voto doppio!)` : '';
-            showResult(`🗳️ Voto registrato!${voteWeight}`, 'success');
+            showResult(`🗳️ Voto registrato!${voteWeight} Controllo avanzamento...`, 'success');
 
             // Controllo immediato per avanzamento automatico
             setTimeout(() => {
@@ -1308,110 +1203,204 @@ function submitVote() {
     });
 }
 
-// 5. MIGLIORAMENTO timer con colori più evidenti per urgenza
-function updateTimer(timeRemaining, phase) {
-    const timer = document.getElementById('timer');
+// FUNZIONI UTILITY
 
-    if (timeRemaining <= 0) {
-        timer.textContent = '⏱️ 00:00';
-        timer.className = 'timer-container danger';
-        timer.style.animation = 'blink 1s infinite'; // Lampeggiante
-        return;
-    }
+function selectTarget(playerId) {
+    selectedTarget = playerId;
 
-    const minutes = Math.floor(timeRemaining / 60);
-    const seconds = Math.floor(timeRemaining % 60);
-    const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    // Rimuovi selezione precedente
+    document.querySelectorAll('.player-card').forEach(card => {
+        card.classList.remove('selected');
+    });
 
-    const phaseEmoji = {
-        'night': '🌙',
-        'day': '☀️',
-        'voting': '🗳️',
-        'setup': '⚙️'
-    }[phase] || '⏱️';
+    // Aggiungi selezione corrente
+    event.currentTarget.classList.add('selected');
 
-    timer.textContent = `${phaseEmoji} ${timeStr}`;
-
-    // Timer più aggressivo per spingere all'azione
-    if (timeRemaining <= 10) {
-        timer.className = 'timer-container danger';
-        timer.style.animation = 'pulse 0.5s infinite'; // Pulsazione veloce
-    } else if (timeRemaining <= 20) {
-        timer.className = 'timer-container warning';
-        timer.style.animation = 'pulse 1s infinite'; // Pulsazione lenta
-    } else {
-        timer.className = 'timer-container';
-        timer.style.animation = 'none';
+    // Abilita bottone
+    const btn = document.getElementById('action-btn');
+    if (btn) {
+        btn.disabled = false;
     }
 }
 
-// 6. AGGIUNTA CSS per animazioni timer urgenti
-const timerAnimationCSS = `
-<style>
-@keyframes pulse {
-    0% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.7; transform: scale(1.05); }
-    100% { opacity: 1; transform: scale(1); }
+function getActionType() {
+    if (!gameData) return 'unknown';
+
+    const ruolo = gameData.ruolo;
+    if (ruolo.team === 'lupi') return 'kill';
+    if (ruolo.nome === 'Veggente') return 'investigate';
+    if (ruolo.nome === 'Guardia') return 'protect';
+
+    return 'unknown';
 }
 
-@keyframes blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0.3; }
+function getActionButtonText() {
+    if (!gameData) return 'Conferma Azione';
+
+    const phase = gameData.fase_corrente;
+    const ruolo = gameData.ruolo;
+
+    if (phase === 'night') {
+        if (ruolo.team === 'lupi') return 'Elimina Giocatore';
+        if (ruolo.nome === 'Veggente') return 'Investiga Giocatore';
+        if (ruolo.nome === 'Guardia') return 'Proteggi Giocatore';
+    } else if (phase === 'voting') {
+        return 'Vota Giocatore';
+    }
+
+    return 'Conferma Azione';
 }
 
-.timer-container.warning {
-    background: linear-gradient(45deg, #f39c12, #e67e22) !important;
-    box-shadow: 0 0 15px rgba(243, 156, 18, 0.6);
+function showResult(message, type) {
+    const resultDiv = document.getElementById('result-messages');
+    const messageElement = document.createElement('div');
+    messageElement.className = `result-message result-${type}`;
+    messageElement.textContent = message;
+
+    resultDiv.appendChild(messageElement);
+
+    // Rimuovi dopo 5 secondi
+    setTimeout(() => {
+        if (resultDiv.contains(messageElement)) {
+            resultDiv.removeChild(messageElement);
+        }
+    }, 5000);
 }
 
-.timer-container.danger {
-    background: linear-gradient(45deg, #e74c3c, #c0392b) !important;
-    box-shadow: 0 0 20px rgba(231, 76, 60, 0.8);
-    border: 2px solid #fff;
-}
-</style>
-`;
-
-// Inserisci CSS nel head del documento
-if (!document.getElementById('timer-animations')) {
-    const styleElement = document.createElement('div');
-    styleElement.id = 'timer-animations';
-    styleElement.innerHTML = timerAnimationCSS;
-    document.head.appendChild(styleElement);
+function showError(message) {
+    showResult(message, 'error');
 }
 
-// 7. MESSAGGIO DI INCORAGGIAMENTO per velocizzare
-function showWaitingMessage(phase, haFattoAzione, haVotato) {
-    const actionsSection = document.getElementById('actions-section');
-    actionsSection.style.display = 'block';
+function notifyPhaseChange(newPhase) {
+    const phaseMessages = {
+        'night': '🌙 È calata la notte... I lupi si svegliano!',
+        'day': '☀️ È sorto il sole! Tempo di discutere!',
+        'voting': '🗳️ Tempo di votare! Chi volete eliminare?',
+        'setup': '⚙️ Preparazione in corso...'
+    };
+
+    if (phaseMessages[newPhase]) {
+        showResult(phaseMessages[newPhase], 'info');
+    }
+}
+
+function updateEventsList(eventi) {
+    const eventsList = document.getElementById('events-list');
+    if (!eventsList || !eventi) return;
+
+    eventsList.innerHTML = eventi.slice(0, 5).map(evento => `
+        <div class="event-item">
+            <span class="event-time">T${evento.turno}</span>
+            <span class="event-description">${evento.descrizione}</span>
+        </div>
+    `).join('');
+}
+
+// INTERFACCE SPECIALI
+
+function showDeadPlayerInterface(stato) {
+    const gameArea = document.getElementById('game-area');
 
     let message = '';
-    if (phase === 'night') {
-        if (haFattoAzione) {
-            message = '🌙 Azione completata! Aspettando gli altri giocatori... ⏳';
-        } else {
-            message = '🌙 È notte, rilassati e aspetta l\'alba...';
-        }
-    } else if (phase === 'day') {
-        message = '☀️ È giorno! Discutete velocemente, il tempo stringe! 💨';
-    } else if (phase === 'voting') {
-        if (haVotato) {
-            message = '🗳️ Voto registrato! Aspettando gli altri... Speriamo decidano in fretta! ⏰';
-        }
+    let emoji = '';
+
+    if (stato === 'morto') {
+        message = 'Sei stato eliminato dai lupi! 💀';
+        emoji = '🌙';
+    } else if (stato === 'eliminato') {
+        message = 'Sei stato eliminato dalla votazione! ⚖️';
+        emoji = '🗳️';
     }
 
-    actionsSection.innerHTML = `
-        <div style="text-align: center; padding: 30px; background: rgba(52, 152, 219, 0.1); border-radius: 15px; border: 2px solid #3498db;">
-            <h3 style="color: #3498db; margin-bottom: 15px;">${message}</h3>
-            <p style="font-size: 1.1em; opacity: 0.8; margin-bottom: 15px;">
-                Il gioco avanza automaticamente quando tutti completano le azioni!
-            </p>
-            <button onclick="loadGameStatus()" class="btn" style="background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">
-                🔄 Aggiorna Stato
+    gameArea.innerHTML = `
+        <div style="text-align: center; padding: 40px;">
+            <div style="font-size: 4em; margin-bottom: 20px;">${emoji}</div>
+            <h2 style="color: #e74c3c; margin-bottom: 20px;">${message}</h2>
+            <p style="font-size: 1.2em; opacity: 0.8;">Puoi continuare a seguire la partita, ma non puoi più partecipare.</p>
+        </div>
+    `;
+}
+
+function showGameEndedInterface(data) {
+    const gameArea = document.getElementById('game-area');
+
+    gameArea.innerHTML = `
+        <div style="text-align: center; padding: 40px;">
+            <div style="font-size: 4em; margin-bottom: 20px;">🏆</div>
+            <h2 style="color: #27ae60; margin-bottom: 20px;">Partita Terminata!</h2>
+            <p style="font-size: 1.4em; margin-bottom: 20px;">Vincitori: <strong>${data.vincitori}</strong></p>
+            <button onclick="window.location.href='/dashboard'" class="btn" style="background: #3498db; color: white; border: none; padding: 15px 30px; border-radius: 10px; font-size: 1.1em; cursor: pointer;">
+                🏠 Torna alla Dashboard
             </button>
         </div>
     `;
 }
-    </script>
+
+function showWaitingForPlayersInterface(data) {
+    const actionsSection = document.getElementById('actions-section');
+    actionsSection.style.display = 'block';
+
+    actionsSection.innerHTML = `
+        <div style="text-align: center; padding: 30px; background: rgba(155, 89, 182, 0.1); border-radius: 15px; border: 2px solid #9b59b6;">
+            <h3 style="color: #9b59b6; margin-bottom: 15px;">⚙️ Preparazione Partita</h3>
+            <p style="font-size: 1.1em; margin-bottom: 20px;">
+                In attesa che il gamemaster avvii la partita...
+            </p>
+            <div style="background: rgba(52, 152, 219, 0.1); padding: 15px; border-radius: 10px;">
+                <p style="margin: 0; font-weight: bold;">
+                    Giocatori pronti: ${data.totale_giocatori || 0}
+                </p>
+            </div>
+        </div>
+    `;
+}
+
+// GESTIONE REFRESH E CLEANUP
+
+function refreshGame() {
+    loadGameStatus();
+    showResult('Gioco aggiornato!', 'success');
+}
+
+// Gestione visibilità pagina
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+    } else {
+        startPeriodicUpdates();
+        loadGameStatus();
+    }
+});
+
+// Cleanup quando si lascia la pagina
+window.addEventListener('beforeunload', function() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+});
+
+// Gestione tasti rapidi
+document.addEventListener('keydown', function(e) {
+    // F5 per refresh
+    if (e.key === 'F5') {
+        e.preventDefault();
+        refreshGame();
+    }
+
+    // Spazio per confermare azione
+    if (e.code === 'Space' && selectedTarget) {
+        const btn = document.getElementById('action-btn');
+        if (btn && !btn.disabled) {
+            e.preventDefault();
+            if (gameData.fase_corrente === 'voting') {
+                submitVote();
+            } else {
+                submitAction();
+            }
+        }
+    }
+});</script>
 </body>
 </html>
