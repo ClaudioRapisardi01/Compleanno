@@ -1184,6 +1184,234 @@
                 executeAction();
             }
         });
+        // AGGIUNGI QUESTO CODICE AI FILE JAVASCRIPT DI LUPUS
+
+// 1. NEL FILE lupus_in_fabula.html - Modifica la funzione startPeriodicUpdates
+function startPeriodicUpdates() {
+    // Controllo più frequente per velocizzare il gioco
+    refreshInterval = setInterval(() => {
+        loadGameStatus();
+
+        // Controllo automatico per avanzamento fasi
+        checkAutoAdvancement();
+    }, 2000); // Ogni 2 secondi invece di 3
+}
+
+// 2. NUOVA FUNZIONE per controllo automatico
+function checkAutoAdvancement() {
+    fetch('/api/lupus-auto-check', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'phase_advanced' || data.status === 'auto_advanced') {
+            // Fase avanzata, ricarica immediatamente
+            loadGameStatus();
+
+            if (data.status === 'phase_advanced') {
+                showResult('⏰ Tempo scaduto! Fase avanzata automaticamente', 'info');
+            } else {
+                showResult('✅ Tutti hanno completato le azioni! Avanzamento automatico', 'success');
+            }
+        }
+    })
+    .catch(error => {
+        // Errore silenzioso per non disturbare l'esperienza utente
+        console.log('Controllo automatico fallito:', error);
+    });
+}
+
+// 3. MODIFICA alla funzione submitAction per avanzamento rapido
+function submitAction() {
+    if (!selectedTarget) return;
+
+    const btn = document.getElementById('action-btn');
+    btn.disabled = true;
+    btn.textContent = 'Inviando...';
+
+    fetch('/api/lupus-action', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action_type: getActionType(),
+            target_id: selectedTarget
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showResult('✅ Azione inviata!', 'success');
+
+            // Controllo immediato per avanzamento automatico
+            setTimeout(() => {
+                checkAutoAdvancement();
+                loadGameStatus();
+            }, 500);
+
+        } else {
+            showResult(`❌ ${data.error}`, 'error');
+            btn.disabled = false;
+            btn.textContent = getActionButtonText();
+        }
+    })
+    .catch(error => {
+        showResult('🔌 Errore di connessione', 'error');
+        btn.disabled = false;
+        btn.textContent = getActionButtonText();
+    });
+}
+
+// 4. MODIFICA alla funzione submitVote per avanzamento rapido
+function submitVote() {
+    if (!selectedTarget) return;
+
+    const btn = document.getElementById('action-btn');
+    btn.disabled = true;
+    btn.textContent = 'Votando...';
+
+    fetch('/api/lupus-vote', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            target_id: selectedTarget
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const voteWeight = data.peso_voto > 1 ? ` (voto doppio!)` : '';
+            showResult(`🗳️ Voto registrato!${voteWeight}`, 'success');
+
+            // Controllo immediato per avanzamento automatico
+            setTimeout(() => {
+                checkAutoAdvancement();
+                loadGameStatus();
+            }, 500);
+
+        } else {
+            showResult(`❌ ${data.error}`, 'error');
+            btn.disabled = false;
+            btn.textContent = 'Vota Giocatore';
+        }
+    })
+    .catch(error => {
+        showResult('🔌 Errore di connessione', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Vota Giocatore';
+    });
+}
+
+// 5. MIGLIORAMENTO timer con colori più evidenti per urgenza
+function updateTimer(timeRemaining, phase) {
+    const timer = document.getElementById('timer');
+
+    if (timeRemaining <= 0) {
+        timer.textContent = '⏱️ 00:00';
+        timer.className = 'timer-container danger';
+        timer.style.animation = 'blink 1s infinite'; // Lampeggiante
+        return;
+    }
+
+    const minutes = Math.floor(timeRemaining / 60);
+    const seconds = Math.floor(timeRemaining % 60);
+    const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+    const phaseEmoji = {
+        'night': '🌙',
+        'day': '☀️',
+        'voting': '🗳️',
+        'setup': '⚙️'
+    }[phase] || '⏱️';
+
+    timer.textContent = `${phaseEmoji} ${timeStr}`;
+
+    // Timer più aggressivo per spingere all'azione
+    if (timeRemaining <= 10) {
+        timer.className = 'timer-container danger';
+        timer.style.animation = 'pulse 0.5s infinite'; // Pulsazione veloce
+    } else if (timeRemaining <= 20) {
+        timer.className = 'timer-container warning';
+        timer.style.animation = 'pulse 1s infinite'; // Pulsazione lenta
+    } else {
+        timer.className = 'timer-container';
+        timer.style.animation = 'none';
+    }
+}
+
+// 6. AGGIUNTA CSS per animazioni timer urgenti
+const timerAnimationCSS = `
+<style>
+@keyframes pulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.3; }
+}
+
+.timer-container.warning {
+    background: linear-gradient(45deg, #f39c12, #e67e22) !important;
+    box-shadow: 0 0 15px rgba(243, 156, 18, 0.6);
+}
+
+.timer-container.danger {
+    background: linear-gradient(45deg, #e74c3c, #c0392b) !important;
+    box-shadow: 0 0 20px rgba(231, 76, 60, 0.8);
+    border: 2px solid #fff;
+}
+</style>
+`;
+
+// Inserisci CSS nel head del documento
+if (!document.getElementById('timer-animations')) {
+    const styleElement = document.createElement('div');
+    styleElement.id = 'timer-animations';
+    styleElement.innerHTML = timerAnimationCSS;
+    document.head.appendChild(styleElement);
+}
+
+// 7. MESSAGGIO DI INCORAGGIAMENTO per velocizzare
+function showWaitingMessage(phase, haFattoAzione, haVotato) {
+    const actionsSection = document.getElementById('actions-section');
+    actionsSection.style.display = 'block';
+
+    let message = '';
+    if (phase === 'night') {
+        if (haFattoAzione) {
+            message = '🌙 Azione completata! Aspettando gli altri giocatori... ⏳';
+        } else {
+            message = '🌙 È notte, rilassati e aspetta l\'alba...';
+        }
+    } else if (phase === 'day') {
+        message = '☀️ È giorno! Discutete velocemente, il tempo stringe! 💨';
+    } else if (phase === 'voting') {
+        if (haVotato) {
+            message = '🗳️ Voto registrato! Aspettando gli altri... Speriamo decidano in fretta! ⏰';
+        }
+    }
+
+    actionsSection.innerHTML = `
+        <div style="text-align: center; padding: 30px; background: rgba(52, 152, 219, 0.1); border-radius: 15px; border: 2px solid #3498db;">
+            <h3 style="color: #3498db; margin-bottom: 15px;">${message}</h3>
+            <p style="font-size: 1.1em; opacity: 0.8; margin-bottom: 15px;">
+                Il gioco avanza automaticamente quando tutti completano le azioni!
+            </p>
+            <button onclick="loadGameStatus()" class="btn" style="background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">
+                🔄 Aggiorna Stato
+            </button>
+        </div>
+    `;
+}
     </script>
 </body>
 </html>

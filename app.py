@@ -3076,8 +3076,20 @@ def check_lupus_win_conditions(partita_id):
         conn.close()
 
 
-def update_lupus_phase_timer(partita_id, fase, durata_minuti=5):
-    """Aggiorna il timer della fase corrente"""
+def update_lupus_phase_timer(partita_id, fase, durata_minuti=None):
+    """Aggiorna il timer della fase corrente con durate più veloci"""
+
+    # Durate ottimizzate per velocità
+    durate_veloci = {
+        'night': 1.5,  # 90 secondi per azioni notturne
+        'day': 2.0,  # 2 minuti per discussione
+        'voting': 1.0,  # 60 secondi per votare
+        'setup': 0.5  # 30 secondi per preparazione
+    }
+
+    if durata_minuti is None:
+        durata_minuti = durate_veloci.get(fase, 2.0)
+
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -3825,6 +3837,330 @@ def get_lupus_game_summary(partita_id):
 
     except Exception as e:
         return jsonify({'error': f'Errore recupero riassunto: {str(e)}'}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def check_auto_advance_phase(partita_id):
+    """Controlla se tutti hanno completato le azioni e avanza automaticamente"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Ottieni info partita
+        cursor.execute("""
+            SELECT fase_corrente, turno_numero FROM lupus_partite 
+            WHERE id = %s AND stato != 'ended'
+        """, (partita_id,))
+
+        result = cursor.fetchone()
+        if not result:
+            return False
+
+        fase_corrente, turno = result
+
+        if fase_corrente == 'night':
+            # Controlla se tutti i lupi e ruoli speciali hanno agito
+            cursor.execute("""
+                SELECT COUNT(*) as total_with_actions,
+                       COUNT(la.id) as completed_actions
+                FROM lupus_partecipazioni lp
+                JOIN lupus_ruoli lr ON lp.ruolo_id = lr.id
+                LEFT JOIN lupus_azioni la ON (lp.giocatore_id = la.giocatore_id 
+                          AND la.partita_id = %s AND la.turno = %s AND la.fase = 'night')
+                WHERE lp.partita_id = %s AND lp.stato = 'vivo' 
+                AND (lr.team = 'lupi' OR lr.azione_notturna IS NOT NULL)
+            """, (partita_id, turno, partita_id))
+
+            result = cursor.fetchone()
+            if result and result[0] > 0 and result[0] == result[1]:
+                # Tutti hanno agito, avanza al giorno
+                advance_to_next_phase(partita_id, 'day')
+                return True
+
+        elif fase_corrente == 'voting':
+            # Controlla se tutti i vivi hanno votato
+            cursor.execute("""
+                SELECT COUNT(*) as total_alive,
+                       COUNT(lv.id) as total_votes
+                FROM lupus_partecipazioni lp
+                LEFT JOIN lupus_votazioni lv ON (lp.giocatore_id = lv.votante_giocatore_id 
+                          AND lv.partita_id = %s AND lv.turno = %s)
+                WHERE lp.partita_id = %s AND lp.stato = 'vivo'
+            """, (partita_id, turno, partita_id))
+
+            result = cursor.fetchone()
+            if result and result[0] > 0 and result[0] == result[1]:
+                # Tutti hanno votato, processa votazione
+                process_voting_results(partita_id, turno)
+                return True
+
+        return False
+
+    except Exception as e:
+        print(f"Errore controllo avanzamento automatico: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# 3. PROCESSAMENTO AUTOMATICO DELLE VOTAZIONI
+def process_voting_results(partita_id, turno):
+    """Processa i risultati della votazione ed elimina il giocatore"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Conta i voti per ogni giocatore
+        cursor.execute("""
+            SELECT lv.votato_giocatore_id, g.nome, SUM(lv.peso_voto) as voti_totali
+            FROM lupus_votazioni lv
+            JOIN giocatori g ON lv.votato_giocatore_id = g.id
+            WHERE lv.partita_id = %s AND lv.turno = %s
+            GROUP BY lv.votato_giocatore_id, g.nome
+            ORDER BY voti_totali DESC, RAND()  -- RAND() per pareggi casuali
+            LIMIT 1
+        """, (partita_id, turno))
+
+        result = cursor.fetchone()
+        if result:
+            eliminato_id, eliminato_nome, voti_totali = result
+
+            # Elimina il giocatore
+            cursor.execute("""
+                UPDATE lupus_partecipazioni 
+                SET stato = 'eliminato', morte_turno = %s 
+                WHERE partita_id = %s AND giocatore_id = %s
+            """, (turno, partita_id, eliminato_id))
+
+            # Log evento eliminazione
+            cursor.execute("""
+                INSERT INTO lupus_eventi (partita_id, turno, fase, tipo_evento, descrizione)
+                VALUES (%s, %s, 'voting', 'eliminazione', %s)
+            """, (partita_id, turno, f'{eliminato_nome} eliminato con {voti_totali} voti'))
+
+            conn.commit()
+
+            # Controlla condizioni vittoria
+            vincitore = check_lupus_win_conditions(partita_id)
+            if vincitore:
+                end_lupus_game(partita_id, vincitore)
+            else:
+                # Avanza al turno successivo
+                advance_to_next_phase(partita_id, 'night', new_turn=True)
+
+        return True
+
+    except Exception as e:
+        print(f"Errore processamento votazioni: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# 4. AVANZAMENTO FLUIDO TRA FASI
+def advance_to_next_phase(partita_id, next_phase, new_turn=False):
+    """Avanza alla fase successiva con timer appropriato"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        if new_turn:
+            # Nuovo turno
+            cursor.execute("""
+                UPDATE lupus_partite 
+                SET turno_numero = turno_numero + 1, fase_corrente = %s,
+                    tempo_fase_inizio = NOW(), ultimo_aggiornamento = NOW()
+                WHERE id = %s
+            """, (next_phase, partita_id))
+
+            # Ottieni nuovo numero turno
+            cursor.execute("SELECT turno_numero FROM lupus_partite WHERE id = %s", (partita_id,))
+            nuovo_turno = cursor.fetchone()[0]
+
+        else:
+            # Stessa fase, solo cambio fase
+            cursor.execute("""
+                UPDATE lupus_partite 
+                SET fase_corrente = %s, tempo_fase_inizio = NOW(), ultimo_aggiornamento = NOW()
+                WHERE id = %s
+            """, (next_phase, partita_id))
+            nuovo_turno = None
+
+        # Aggiorna durata fase
+        update_lupus_phase_timer(partita_id, next_phase)
+
+        conn.commit()
+
+        # Log cambio fase
+        if nuovo_turno:
+            cursor.execute("""
+                INSERT INTO lupus_eventi (partita_id, turno, fase, tipo_evento, descrizione)
+                VALUES (%s, %s, %s, 'cambio_fase', %s)
+            """, (partita_id, nuovo_turno, next_phase, f'Inizio turno {nuovo_turno} - Fase: {next_phase}'))
+        else:
+            cursor.execute("""
+                SELECT turno_numero FROM lupus_partite WHERE id = %s
+            """, (partita_id,))
+            turno_corrente = cursor.fetchone()[0]
+
+            cursor.execute("""
+                INSERT INTO lupus_eventi (partita_id, turno, fase, tipo_evento, descrizione)
+                VALUES (%s, %s, %s, 'cambio_fase', %s)
+            """, (partita_id, turno_corrente, next_phase, f'Cambio fase: {next_phase}'))
+
+        conn.commit()
+        return True
+
+    except Exception as e:
+        print(f"Errore avanzamento fase: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# 5. ROUTE PER CONTROLLO AUTOMATICO PERIODICO
+@app.route('/api/lupus-auto-check', methods=['POST'])
+def lupus_auto_check():
+    """Controllo automatico per avanzamento fasi - da chiamare ogni 5 secondi"""
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Trova partita attiva
+        cursor.execute("""
+            SELECT id, fase_corrente, fine_fase, turno_numero 
+            FROM lupus_partite 
+            WHERE stato != 'ended' 
+            ORDER BY id DESC LIMIT 1
+        """)
+
+        partita = cursor.fetchone()
+        if not partita:
+            return jsonify({'status': 'no_game'})
+
+        partita_id, fase, fine_fase, turno = partita
+
+        # Controlla se il tempo è scaduto
+        if datetime.now() > fine_fase:
+            if fase == 'night':
+                # Processamento azioni notturne e avanza al giorno
+                process_night_actions(partita_id, turno)
+                advance_to_next_phase(partita_id, 'day')
+
+            elif fase == 'day':
+                # Avanza alla votazione
+                advance_to_next_phase(partita_id, 'voting')
+
+            elif fase == 'voting':
+                # Processa votazioni
+                process_voting_results(partita_id, turno)
+
+            return jsonify({'status': 'phase_advanced', 'new_phase': fase})
+
+        # Controlla avanzamento automatico
+        elif check_auto_advance_phase(partita_id):
+            return jsonify({'status': 'auto_advanced'})
+
+        return jsonify({'status': 'ok'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# 6. PROCESSAMENTO AZIONI NOTTURNE
+def process_night_actions(partita_id, turno):
+    """Processa tutte le azioni notturne"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Ottieni tutte le azioni non processate del turno
+        cursor.execute("""
+            SELECT la.id, la.giocatore_id, la.tipo_azione, la.target_giocatore_id,
+                   g.nome as attaccante, gt.nome as target
+            FROM lupus_azioni la
+            JOIN giocatori g ON la.giocatore_id = g.id
+            LEFT JOIN giocatori gt ON la.target_giocatore_id = gt.id
+            WHERE la.partita_id = %s AND la.turno = %s AND la.fase = 'night' 
+            AND la.processata = FALSE
+            ORDER BY la.id
+        """, (partita_id, turno))
+
+        azioni = cursor.fetchall()
+
+        for azione_id, giocatore_id, tipo_azione, target_id, attaccante, target in azioni:
+
+            if tipo_azione == 'kill' and target_id:
+                # Elimina il target
+                cursor.execute("""
+                    UPDATE lupus_partecipazioni 
+                    SET stato = 'morto', morte_turno = %s 
+                    WHERE partita_id = %s AND giocatore_id = %s
+                """, (turno, partita_id, target_id))
+
+                # Log eliminazione
+                cursor.execute("""
+                    INSERT INTO lupus_eventi (partita_id, turno, fase, tipo_evento, descrizione)
+                    VALUES (%s, %s, 'night', 'morte', %s)
+                """, (partita_id, turno, f'{target} è stato eliminato durante la notte'))
+
+            # Marca azione come processata
+            cursor.execute("""
+                UPDATE lupus_azioni SET processata = TRUE WHERE id = %s
+            """, (azione_id,))
+
+        conn.commit()
+        return True
+
+    except Exception as e:
+        print(f"Errore processamento azioni notturne: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# 7. TERMINAZIONE GIOCO
+def end_lupus_game(partita_id, vincitore):
+    """Termina il gioco e dichiara il vincitore"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            UPDATE lupus_partite 
+            SET stato = 'ended', vincitore = %s, fine_partita = NOW() 
+            WHERE id = %s
+        """, (vincitore, partita_id))
+
+        # Log fine partita
+        cursor.execute("""
+            INSERT INTO lupus_eventi (partita_id, turno, fase, tipo_evento, descrizione)
+            VALUES (%s, (SELECT turno_numero FROM lupus_partite WHERE id = %s), 
+                    'ended', 'fine_partita', %s)
+        """, (partita_id, partita_id, f'Partita terminata! Vittoria: {vincitore}'))
+
+        # Aggiorna stato generale gioco
+        cursor.execute("""
+            UPDATE stato_gioco SET gioco_attivo = NULL, 
+            messaggio = %s, ultimo_aggiornamento = NOW() WHERE id = 1
+        """, (f'Partita Lupus terminata! Hanno vinto i {vincitore}! 🎉',))
+
+        conn.commit()
+        return True
+
+    except Exception as e:
+        print(f"Errore terminazione gioco: {e}")
+        return False
     finally:
         cursor.close()
         conn.close()
