@@ -459,52 +459,16 @@
             color: white;
         }
 
-        /* Stili specifici per Lupus in Fabula */
-        .lupus-players-list {
-            max-height: 400px;
-            overflow-y: auto;
-        }
 
-        .lupus-player-item {
-            display: flex;
-            align-items: center;
-            padding: 10px;
-            margin-bottom: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            border-left: 4px solid;
-            transition: all 0.3s ease;
-        }
 
-        .lupus-player-item:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateX(5px);
-        }
 
-        .lupus-player-item.dead {
-            opacity: 0.6;
-            filter: grayscale(70%);
-        }
 
-        .lupus-phase-controls {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin: 20px 0;
-        }
 
-        .lupus-phase-controls button {
-            padding: 12px 20px;
-            border: none;
-            border-radius: 10px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
 
-        .lupus-phase-controls button.active {
-            background: linear-gradient(45deg, #f39c12, #e67e22);
-        }
+
+
+
+
 
         .current-game-status {
             background: rgba(255, 255, 255, 0.1);
@@ -517,15 +481,7 @@
             margin-bottom: 8px;
         }
 
-        .lupus-config-selector {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 10px;
-            border: none;
-            background: rgba(255,255,255,0.9);
-            color: #333;
-        }
+
 
         .events-log {
             max-height: 200px;
@@ -571,9 +527,7 @@
                 min-width: 120px;
             }
 
-            .lupus-phase-controls {
-                grid-template-columns: 1fr;
-            }
+
         }
 
         /* Stili specifici per Indovina Chi */
@@ -743,7 +697,7 @@
             <div class="tab" onclick="showTab('personaggi')">🎭 Personaggi</div>
             <div class="tab" onclick="showTab('questions')">❓ Gestione Domande</div>
             <div class="tab" onclick="showTab('indovina')">🕵️ Indovina Chi</div>
-            <div class="tab" onclick="showTab('lupus')">🐺 Lupus in Fabula</div>
+
             <div class="tab" onclick="showTab('stats')">📊 Statistiche</div>
         </div>
 
@@ -767,10 +721,7 @@
                             <span>🕵️ Indovina Chi</span>
                             <span>●</span>
                         </button>
-                        <button class="game-btn" onclick="startGame('lupus_in_fabula')">
-                            <span>🐺 Lupus in Fabula</span>
-                            <span>●</span>
-                        </button>
+
                         <button class="game-btn" onclick="startGame('votazione_costumi')">
                             <span>🎭 Votazione Costumi</span>
                             <span>●</span>
@@ -852,14 +803,7 @@
                         <p><strong>Risposte:</strong> <span id="current-responses">0</span></p>
                     </div>
 
-                    <div style="margin: 20px 0;">
-                        <select id="person-selector" class="lupus-config-selector">
-                            <option value="">Scegli persona casuale</option>
-                        </select>
-                        <button class="btn btn-success" onclick="startIndovinaGame()" style="width: 100%; margin-bottom: 10px;">
-                            🚀 Avvia Nuova Partita
-                        </button>
-                    </div>
+
 
                     <div class="game-controls" id="indovina-controls" style="display: none;">
                         <button class="btn btn-secondary" onclick="nextIndovinaClue()" id="next-clue-btn" style="width: 100%; margin-bottom: 10px;">
@@ -907,90 +851,7 @@
             </div>
         </div>
 
-        <!-- Tab Lupus in Fabula -->
-        <div id="lupus-tab" class="tab-content">
-            <div class="control-grid">
-                <!-- Controllo Partita Lupus -->
-                <div class="control-section">
-                    <h3>🐺 Controllo Partita Lupus</h3>
-                    <div class="current-game-status" id="lupus-game-status">
-                        <p><strong>Stato:</strong> <span id="lupus-status-text">Nessuna partita attiva</span></p>
-                        <p><strong>Fase:</strong> <span id="lupus-current-phase">-</span></p>
-                        <p><strong>Turno:</strong> <span id="lupus-current-turn">-</span></p>
-                        <p><strong>Tempo rimanente:</strong> <span id="lupus-time-remaining">-</span></p>
-                        <p><strong>Vivi:</strong> Lupi <span id="lupus-wolves-alive">0</span> | Cittadini <span id="lupus-citizens-alive">0</span></p>
-                    </div>
 
-                    <!-- Configurazioni rapide -->
-                    <div style="margin: 20px 0;">
-                        <label for="lupus-config-selector" style="display: block; margin-bottom: 10px; font-weight: bold;">⚙️ Configurazione Rapida:</label>
-                        <select id="lupus-config-selector" class="lupus-config-selector">
-                            <option value="">Caricamento configurazioni...</option>
-                        </select>
-
-                        <button class="btn btn-success" onclick="startLupusGame()" style="width: 100%; margin-bottom: 10px;">
-                            🚀 Avvia Lupus in Fabula
-                        </button>
-                    </div>
-
-                    <!-- Controlli di fase -->
-                    <div class="lupus-phase-controls" id="lupus-phase-controls" style="display: none;">
-                        <h4 style="grid-column: 1/-1; text-align: center; margin-bottom: 15px;">🎮 Controlli Fase</h4>
-                        <button class="btn btn-secondary" onclick="changeLupusPhase('night')" id="btn-night">
-                            🌙 Notte
-                        </button>
-                        <button class="btn btn-secondary" onclick="changeLupusPhase('day')" id="btn-day">
-                            ☀️ Giorno
-                        </button>
-                        <button class="btn btn-secondary" onclick="changeLupusPhase('voting')" id="btn-voting" style="grid-column: 1/-1;">
-                            🗳️ Votazione
-                        </button>
-                        <button class="btn" onclick="endLupusGame()" style="background: #e74c3c; grid-column: 1/-1;">
-                            🛑 Termina Partita
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Giocatori in Partita -->
-                <div class="control-section">
-                    <h3>👥 Giocatori in Partita</h3>
-                    <div id="lupus-players-list" class="lupus-players-list">
-                        <p style="text-align: center; opacity: 0.7;">Nessuna partita attiva</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Statistiche e Cronologia -->
-            <div class="control-section" style="margin-top: 30px;">
-                <h3>📊 Statistiche Partita</h3>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-number" id="lupus-total-players">0</div>
-                        <div class="stat-label">Giocatori Totali</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="lupus-current-turn-stat">0</div>
-                        <div class="stat-label">Turno Corrente</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="lupus-actions-count">0</div>
-                        <div class="stat-label">Azioni Eseguite</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="lupus-votes-count">0</div>
-                        <div class="stat-label">Voti Espressi</div>
-                    </div>
-                </div>
-
-                <!-- Log Eventi -->
-                <div style="margin-top: 30px;">
-                    <h4>📝 Log Eventi Recenti</h4>
-                    <div id="lupus-events-log" class="events-log">
-                        <p style="opacity: 0.7;">Nessun evento da mostrare</p>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Tab Statistiche -->
         <div id="stats-tab" class="tab-content">
@@ -2987,113 +2848,9 @@ function closeGameEndModal() {
     }
 }
 
-// Funzione per mostrare controlli di fine partita avanzati
-function showAdvancedEndControls() {
-    const modal = document.createElement('div');
-    modal.className = 'advanced-end-modal';
-    modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.8);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 2000;
-    `;
 
-    modal.innerHTML = `
-        <div style="background: white; border-radius: 20px; padding: 30px; max-width: 500px; width: 90%;">
-            <h3 style="color: #333; margin-bottom: 20px; text-align: center;">🎮 Opzioni Fine Partita</h3>
 
-            <div style="margin-bottom: 20px;">
-                <p style="color: #666; text-align: center; margin-bottom: 20px;">
-                    Scegli come terminare la partita:
-                </p>
 
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                    <button onclick="executeEndGame(false); closeAdvancedEndModal();"
-                            style="background: #3498db; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">
-                        🏁 Fine Naturale
-                        <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">
-                            Termina seguendo le regole (controlla vincitore automaticamente)
-                        </div>
-                    </button>
-
-                    <button onclick="forceEndLupusGame('lupi'); closeAdvancedEndModal();"
-                            style="background: #e74c3c; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">
-                        🐺 Vittoria Lupi
-                        <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">
-                            Dichiara vincitori i lupi
-                        </div>
-                    </button>
-
-                    <button onclick="forceEndLupusGame('cittadini'); closeAdvancedEndModal();"
-                            style="background: #3498db; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">
-                        👥 Vittoria Cittadini
-                        <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">
-                            Dichiara vincitori i cittadini
-                        </div>
-                    </button>
-
-                    <button onclick="forceEndLupusGame('pareggio'); closeAdvancedEndModal();"
-                            style="background: #f39c12; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">
-                        ⚖️ Pareggio
-                        <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">
-                            Termina senza vincitori (punti minimi)
-                        </div>
-                    </button>
-                </div>
-            </div>
-
-            <div style="text-align: center;">
-                <button onclick="closeAdvancedEndModal();"
-                        style="background: #95a5a6; color: white; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer;">
-                    Annulla
-                </button>
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(modal);
-}
-
-function closeAdvancedEndModal() {
-    const modal = document.querySelector('.advanced-end-modal');
-    if (modal) {
-        modal.remove();
-    }
-}
-
-// Aggiorna i controlli di fase per includere opzioni avanzate
-function updatePhaseControls(gameData) {
-    const phaseControlsSection = document.getElementById('phase-controls-section');
-
-    if (!gameData.game_active) {
-        phaseControlsSection.style.display = 'none';
-        return;
-    }
-
-    phaseControlsSection.style.display = 'block';
-
-    // Aggiungi pulsante per controlli avanzati se non esiste
-    if (!document.getElementById('advanced-end-btn')) {
-        const advancedBtn = document.createElement('button');
-        advancedBtn.id = 'advanced-end-btn';
-        advancedBtn.className = 'btn';
-        advancedBtn.style.cssText = 'background: #9b59b6; color: white; margin-top: 10px; width: 100%;';
-        advancedBtn.innerHTML = '⚙️ Opzioni Avanzate';
-        advancedBtn.onclick = showAdvancedEndControls;
-
-        // Inserisci prima del pulsante termina partita esistente
-        const terminaBtn = phaseControlsSection.querySelector('button[onclick*="endLupusGame"]');
-        if (terminaBtn) {
-            terminaBtn.parentNode.insertBefore(advancedBtn, terminaBtn);
-        }
-    }
-}
 
 // Funzione per ottenere il colore del team
 function getTeamColor(team) {
@@ -3118,117 +2875,10 @@ function updateGameDisplay(data) {
     }
 }
 
-function showRestartButton() {
-    const setupSection = document.getElementById('setup-section');
-    if (setupSection && !document.getElementById('restart-section')) {
-        const restartSection = document.createElement('div');
-        restartSection.id = 'restart-section';
-        restartSection.className = 'controls-section';
-        restartSection.innerHTML = `
-            <h3>🔄 Partita Terminata</h3>
-            <button class="btn btn-success" onclick="restartLupusGame()" style="width: 100%; margin-bottom: 10px;">
-                🚀 Riavvia Lupus
-            </button>
-            <button class="btn btn-secondary" onclick="location.reload()" style="width: 100%;">
-                🏠 Torna al Menu
-            </button>
-        `;
-        setupSection.parentNode.insertBefore(restartSection, setupSection);
-        setupSection.style.display = 'none';
-    }
-}
 
-// Funzione per mostrare statistiche dettagliate della partita
-function showGameSummary(partitaId) {
-    fetch(`/api/gamemaster/lupus-game-summary/${partitaId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                showNotification(data.error, 'error');
-                return;
-            }
 
-            const modal = document.createElement('div');
-            modal.className = 'game-summary-modal';
-            modal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0,0,0,0.8);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 2000;
-            `;
 
-            modal.innerHTML = `
-                <div style="background: white; border-radius: 20px; padding: 30px; max-width: 800px; width: 90%; max-height: 80vh; overflow-y: auto;">
-                    <h2 style="color: #333; margin-bottom: 20px; text-align: center;">📊 Riassunto Partita #${data.partita.id}</h2>
 
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
-                        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 1.5em; font-weight: bold; color: #333;">${data.partita.vincitore || 'Pareggio'}</div>
-                            <div style="color: #666;">Vincitore</div>
-                        </div>
-                        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 1.5em; font-weight: bold; color: #333;">${data.partita.turni_totali}</div>
-                            <div style="color: #666;">Turni</div>
-                        </div>
-                        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 1.5em; font-weight: bold; color: #333;">${data.partita.durata_minuti}m</div>
-                            <div style="color: #666;">Durata</div>
-                        </div>
-                    </div>
-
-                    <h3 style="color: #333; margin-bottom: 15px;">👥 Giocatori</h3>
-                    <div style="margin-bottom: 30px; max-height: 300px; overflow-y: auto;">
-                        ${data.giocatori.map(g => `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 5px; background: ${g.era_bot ? '#fff3cd' : '#f8f9fa'}; border-radius: 8px; border-left: 4px solid ${getTeamColor(g.team)};">
-                                <div>
-                                    <span style="font-weight: bold;">${g.era_bot ? '🤖 ' : ''}${g.nome}</span>
-                                    <span style="color: #666; margin-left: 10px;">${g.ruolo}</span>
-                                </div>
-                                <div style="text-align: right;">
-                                    <div style="font-weight: bold; color: ${g.punti_ottenuti > 0 ? '#27ae60' : '#95a5a6'};">
-                                        ${g.punti_ottenuti > 0 ? '+' : ''}${g.punti_ottenuti} pt
-                                    </div>
-                                    <div style="font-size: 0.8em; color: #666;">
-                                        ${g.stato_finale}${g.morte_turno ? ` (T${g.morte_turno})` : ''}
-                                    </div>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-
-                    <div style="text-align: center;">
-                        <button onclick="this.parentElement.parentElement.parentElement.remove();"
-                                style="background: #3498db; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: bold; cursor: pointer;">
-                            ✅ Chiudi
-                        </button>
-                    </div>
-                </div>
-            `;
-
-            document.body.appendChild(modal);
-        })
-        .catch(error => {
-            showNotification('Errore caricamento riassunto', 'error');
-        });
-}
-
-// Aggiungi event listener per aggiornamenti automatici
-document.addEventListener('DOMContentLoaded', function() {
-    // Aggiorna ogni 5 secondi se siamo nella pagina gamemaster
-    if (window.location.pathname.includes('gamemaster') || window.location.pathname.includes('lupus')) {
-        setInterval(() => {
-            if (document.querySelector('#lupus-tab, .lupus-controls')) {
-                loadGameStatus();
-            }
-        }, 5000);
-    }
-});
     </script>
 </body>
 </html>
