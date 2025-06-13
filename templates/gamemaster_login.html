@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 Accesso Gamemaster</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #1e3c72 100%);
+            min-height: 100vh;
+            color: white;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Particelle animate di sfondo */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            animation: float 6s infinite linear;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-10vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        /* Container principale */
+        .container {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* Card di login */
+        .login-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            padding: 50px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            animation: slideInUp 1s ease-out;
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            animation: shine 3s infinite;
+        }
+
+        @keyframes shine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        /* Header del login */
+        .login-header {
+            margin-bottom: 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .gamemaster-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+            display: block;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                filter: drop-shadow(0 0 0 rgba(255, 215, 0, 0.7));
+            }
+            50% {
+                transform: scale(1.1);
+                filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.7));
+            }
+            100% {
+                transform: scale(1);
+                filter: drop-shadow(0 0 0 rgba(255, 215, 0, 0.7));
+            }
+        }
+
+        .login-title {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ffd700, #ffed4e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: bold;
+        }
+
+        .login-subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .security-badge {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(39, 174, 96, 0.2);
+            border: 1px solid #27ae60;
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        /* Form di login */
+        .login-form {
+            position: relative;
+            z-index: 1;
+        }
+
+        .form-group {
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #ffd700;
+            font-size: 1.1em;
+        }
+
+        .password-container {
+            position: relative;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 18px 20px;
+            border: 2px solid transparent;
+            border-radius: 15px;
+            font-size: 1.1em;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            transition: all 0.4s ease;
+            font-family: inherit;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #ffd700;
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.3);
+            transform: scale(1.02);
+        }
+
+        .form-input.error {
+            border-color: #e74c3c;
+            box-shadow: 0 0 25px rgba(231, 76, 60, 0.3);
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 1.2em;
+            padding: 5px;
+            transition: color 0.3s ease;
+        }
+
+        .password-toggle:hover {
+            color: #333;
+        }
+
+        /* Bottone di login */
+        .login-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .login-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.5s ease;
+        }
+
+        .login-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .login-btn:hover {
+            background: linear-gradient(45deg, #ee5a52, #ff6b6b);
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(255, 107, 107, 0.4);
+        }
+
+        .login-btn:active {
+            transform: translateY(-1px);
+        }
+
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .login-btn.loading {
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Messaggi di errore */
+        .error-message {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+            color: #fff;
+            font-weight: bold;
+            display: none;
+            animation: fadeInDown 0.5s ease-out;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .success-message {
+            background: rgba(39, 174, 96, 0.2);
+            border: 1px solid #27ae60;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+            color: #fff;
+            font-weight: bold;
+            display: none;
+            animation: fadeInDown 0.5s ease-out;
+        }
+
+        /* Link di ritorno */
+        .back-link {
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .back-link a {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .back-link a:hover {
+            color: #ffd700;
+            transform: translateX(-5px);
+        }
+
+        /* Indicatori di sicurezza */
+        .security-features {
+            margin-top: 25px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .security-features h4 {
+            color: #ffd700;
+            margin-bottom: 15px;
+            font-size: 1em;
+        }
+
+        .security-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .security-list li {
+            padding: 5px 0;
+            font-size: 0.9em;
+            opacity: 0.8;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .security-list li::before {
+            content: '🔒';
+            font-size: 0.8em;
+        }
+
+        /* Caps Lock warning */
+        .caps-warning {
+            background: rgba(255, 193, 7, 0.2);
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 0.9em;
+            display: none;
+            animation: fadeInDown 0.3s ease-out;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .login-card {
+                padding: 30px 25px;
+                margin: 20px 0;
+            }
+
+            .login-title {
+                font-size: 1.8em;
+            }
+
+            .gamemaster-icon {
+                font-size: 3em;
+            }
+
+            .form-input, .login-btn {
+                padding: 15px;
+                font-size: 1em;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .login-card {
+                padding: 25px 20px;
+                border-radius: 20px;
+            }
+
+            .login-title {
+                font-size: 1.6em;
+            }
+
+            .security-features {
+                margin-top: 20px;
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Particelle animate -->
+    <div class="particles" id="particles"></div>
+
+    <div class="container">
+        <div class="login-card">
+            <div class="login-header">
+                <span class="gamemaster-icon">🎮</span>
+                <h1 class="login-title">Gamemaster</h1>
+                <p class="login-subtitle">Accesso al Pannello di Controllo</p>
+                <div class="security-badge">
+                    <span>🔒</span>
+                    <span style="margin-left: 8px;">Accesso Protetto</span>
+                </div>
+            </div>
+
+            <form class="login-form" id="login-form">
+                <div class="form-group">
+                    <label class="form-label" for="password">
+                        <span>🔐</span> Password Gamemaster
+                    </label>
+                    <div class="password-container">
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            class="form-input"
+                            placeholder="Inserisci la password segreta"
+                            required
+                            autocomplete="current-password"
+                        >
+                        <button type="button" class="password-toggle" onclick="togglePassword()">
+                            👁️
+                        </button>
+                    </div>
+                    <div class="caps-warning" id="caps-warning">
+                        ⚠️ Caps Lock è attivato
+                    </div>
+                </div>
+
+                <button type="submit" class="login-btn" id="login-btn">
+                    <span id="btn-text">🚀 Accedi al Pannello</span>
+                </button>
+
+                <div class="error-message" id="error-message"></div>
+                <div class="success-message" id="success-message"></div>
+            </form>
+
+            <div class="security-features">
+                <h4>🛡️ Funzionalità di Sicurezza</h4>
+                <ul class="security-list">
+                    <li>Sessione crittografata</li>
+                    <li>Protezione CSRF</li>
+                    <li>Rate limiting</li>
+                    <li>Audit log accessi</li>
+                </ul>
+            </div>
+
+            <div class="back-link">
+                <a href="/">
+                    <span>⬅️</span>
+                    <span>Torna alla Festa</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let loginAttempts = 0;
+        const maxAttempts = 5;
+        let isSubmitting = false;
+
+        // Genera particelle animate
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 50;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 6 + 's';
+                particle.style.animationDuration = (4 + Math.random() * 4) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+
+        // Toggle visibilità password
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const toggleBtn = document.querySelector('.password-toggle');
+
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleBtn.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                toggleBtn.textContent = '👁️';
+            }
+        }
+
+        // Rilevamento Caps Lock
+        function checkCapsLock(event) {
+            const capsWarning = document.getElementById('caps-warning');
+            const isCapsLock = event.getModifierState && event.getModifierState('CapsLock');
+
+            if (isCapsLock) {
+                capsWarning.style.display = 'block';
+            } else {
+                capsWarning.style.display = 'none';
+            }
+        }
+
+        // Gestione submit form
+        document.getElementById('login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            if (isSubmitting) return;
+
+            const password = document.getElementById('password').value.trim();
+            const errorMsg = document.getElementById('error-message');
+            const successMsg = document.getElementById('success-message');
+            const loginBtn = document.getElementById('login-btn');
+            const btnText = document.getElementById('btn-text');
+            const passwordInput = document.getElementById('password');
+
+            // Reset messaggi
+            errorMsg.style.display = 'none';
+            successMsg.style.display = 'none';
+            passwordInput.classList.remove('error');
+
+            // Validazione base
+            if (!password) {
+                showError('Inserisci la password');
+                passwordInput.focus();
+                return;
+            }
+
+            if (password.length < 3) {
+                showError('Password troppo corta');
+                passwordInput.classList.add('error');
+                passwordInput.focus();
+                return;
+            }
+
+            // Controllo tentativi
+            if (loginAttempts >= maxAttempts) {
+                showError(`Troppi tentativi falliti. Riprova tra 5 minuti.`);
+                return;
+            }
+
+            // Mostra loading
+            isSubmitting = true;
+            loginBtn.classList.add('loading');
+            btnText.innerHTML = '<span class="loading-spinner"></span>Verifica in corso...';
+            loginBtn.disabled = true;
+
+            // Invia richiesta
+            fetch('/gamemaster/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ password: password })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Login riuscito
+                    showSuccess('🎉 Accesso autorizzato! Reindirizzamento...');
+                    btnText.innerHTML = '✅ Accesso Riuscito';
+
+                    // Reindirizza dopo 2 secondi
+                    setTimeout(() => {
+                        window.location.href = '/gamemaster/panel';
+                    }, 2000);
+
+                } else {
+                    // Login fallito
+                    loginAttempts++;
+                    const remainingAttempts = maxAttempts - loginAttempts;
+
+                    if (remainingAttempts > 0) {
+                        showError(`❌ ${data.error || 'Password errata'}. Tentativi rimasti: ${remainingAttempts}`);
+                    } else {
+                        showError('🚫 Account temporaneamente bloccato per sicurezza');
+                    }
+
+                    passwordInput.classList.add('error');
+                    passwordInput.value = '';
+                    passwordInput.focus();
+
+                    resetButton();
+                }
+            })
+            .catch(error => {
+                console.error('Errore login:', error);
+                showError('🔌 Errore di connessione al server');
+                resetButton();
+            });
+        });
+
+        function resetButton() {
+            isSubmitting = false;
+            const loginBtn = document.getElementById('login-btn');
+            const btnText = document.getElementById('btn-text');
+
+            loginBtn.classList.remove('loading');
+            btnText.textContent = '🚀 Accedi al Pannello';
+            loginBtn.disabled = false;
+        }
+
+        function showError(message) {
+            const errorMsg = document.getElementById('error-message');
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+
+            // Nascondi dopo 5 secondi
+            setTimeout(() => {
+                errorMsg.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const successMsg = document.getElementById('success-message');
+            successMsg.textContent = message;
+            successMsg.style.display = 'block';
+        }
+
+        // Event listeners
+        document.getElementById('password').addEventListener('keydown', checkCapsLock);
+        document.getElementById('password').addEventListener('keyup', checkCapsLock);
+
+        // Auto-focus su password
+        window.onload = function() {
+            createParticles();
+
+            // Controlla se già autenticato
+            fetch('/api/gamemaster/check-auth')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.authenticated) {
+                        showSuccess('Già autenticato. Reindirizzamento...');
+                        setTimeout(() => {
+                            window.location.href = '/gamemaster/panel';
+                        }, 1500);
+                    } else {
+                        // Focus su password input
+                        document.getElementById('password').focus();
+                    }
+                })
+                .catch(error => {
+                    console.log('Controllo autenticazione fallito:', error);
+                    document.getElementById('password').focus();
+                });
+        };
+
+        // Gestione tasti
+        document.addEventListener('keydown', function(e) {
+            // Enter per submit (già gestito dal form)
+            // Escape per cancellare
+            if (e.key === 'Escape') {
+                document.getElementById('password').value = '';
+                document.getElementById('password').focus();
+            }
+        });
+
+        // Previeni copia/incolla della password (sicurezza)
+        document.getElementById('password').addEventListener('paste', function(e) {
+            e.preventDefault();
+            showError('Per sicurezza, incolla non è permesso');
+        });
+
+        // Cleanup quando si lascia la pagina
+        window.addEventListener('beforeunload', function() {
+            // Pulisci dati sensibili
+            document.getElementById('password').value = '';
+        });
+    </script>
+</body>
+</html>

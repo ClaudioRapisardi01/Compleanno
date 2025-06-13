@@ -1,0 +1,3234 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 Pannello Gamemaster</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 5px;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            margin: 0 5px;
+        }
+
+        .tab.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: #ffd700;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .control-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-section h3 {
+            margin-bottom: 20px;
+            color: #ffd700;
+            text-align: center;
+        }
+
+        .game-btn {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+
+        .game-btn:hover {
+            background: linear-gradient(45deg, #2980b9, #3498db);
+            transform: scale(1.02);
+        }
+
+        .game-btn.active {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: linear-gradient(45deg, #ee5a52, #ff6b6b);
+            transform: scale(1.05);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+        }
+
+        .players-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .player-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            position: relative;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .player-card.excluded {
+            border-color: #e74c3c;
+            background: rgba(231, 76, 60, 0.2);
+        }
+
+        .player-card.offline {
+            opacity: 0.6;
+            filter: grayscale(50%);
+        }
+
+        .player-photo {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            background: rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            overflow: hidden;
+        }
+
+        .player-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .player-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .player-actions button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8em;
+            font-weight: bold;
+            color: white;
+        }
+
+        .btn-kick {
+            background: #f39c12;
+        }
+
+        .btn-disconnect {
+            background: #e74c3c;
+        }
+
+        .btn-restore {
+            background: #27ae60;
+        }
+
+        .player-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7em;
+            font-weight: bold;
+        }
+
+        .status-online {
+            background: #27ae60;
+            color: white;
+        }
+
+        .status-excluded {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .status-offline {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .personaggi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .personaggio-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .personaggio-card.available {
+            border-color: #27ae60;
+        }
+
+        .personaggio-card.unavailable {
+            border-color: #e74c3c;
+            opacity: 0.7;
+        }
+
+        .personaggio-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .personaggio-info h4 {
+            margin-bottom: 8px;
+            color: #ffd700;
+        }
+
+        .personaggio-info p {
+            font-size: 0.9em;
+            opacity: 0.8;
+            line-height: 1.4;
+        }
+
+        .personaggio-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-align: center;
+            min-width: 90px;
+        }
+
+        .personaggio-status.available {
+            background: #27ae60;
+            color: white;
+        }
+
+        .personaggio-status.taken {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .personaggio-assigned {
+            font-size: 0.85em;
+            color: #ffd700;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+
+        .personaggio-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .personaggio-actions button {
+            flex: 1;
+            min-width: 80px;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: bold;
+            color: white;
+        }
+
+        .toggle-btn {
+            background: #3498db;
+        }
+
+        .toggle-btn.make-unavailable {
+            background: #e74c3c;
+        }
+
+        .questions-list {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .question-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .question-text {
+            flex: 1;
+            margin-right: 15px;
+        }
+
+        .question-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .question-actions button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 20px;
+            width: 80%;
+            max-width: 600px;
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .current-status {
+            background: rgba(76, 175, 80, 0.2);
+            border: 2px solid #4caf50;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .current-status.waiting {
+            background: rgba(255, 193, 7, 0.2);
+            border-color: #ffc107;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 10px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: white;
+        }
+
+        /* Stili specifici per Lupus in Fabula */
+        .lupus-players-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .lupus-player-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            border-left: 4px solid;
+            transition: all 0.3s ease;
+        }
+
+        .lupus-player-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(5px);
+        }
+
+        .lupus-player-item.dead {
+            opacity: 0.6;
+            filter: grayscale(70%);
+        }
+
+        .lupus-phase-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .lupus-phase-controls button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .lupus-phase-controls button.active {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+        }
+
+        .current-game-status {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .current-game-status p {
+            margin-bottom: 8px;
+        }
+
+        .lupus-config-selector {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 10px;
+            border: none;
+            background: rgba(255,255,255,0.9);
+            color: #333;
+        }
+
+        .events-log {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .event-item {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.9em;
+        }
+
+        .event-item:last-child {
+            border-bottom: none;
+        }
+
+        .team-lupi {
+            border-left-color: #e74c3c;
+        }
+
+        .team-cittadini {
+            border-left-color: #3498db;
+        }
+
+        .team-neutral {
+            border-left-color: #f39c12;
+        }
+
+        @media (max-width: 768px) {
+            .control-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tabs {
+                flex-wrap: wrap;
+            }
+
+            .tab {
+                flex: 1;
+                min-width: 120px;
+            }
+
+            .lupus-phase-controls {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Stili specifici per Indovina Chi */
+        .indovina-people-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .person-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .person-card.active {
+            border-color: #27ae60;
+        }
+
+        .person-card.inactive {
+            border-color: #e74c3c;
+            opacity: 0.7;
+        }
+
+        .person-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+        }
+
+        .person-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .person-info h4 {
+            margin-bottom: 8px;
+            color: #f39c12;
+        }
+
+        .person-info p {
+            font-size: 0.9em;
+            opacity: 0.8;
+            line-height: 1.4;
+        }
+
+        .person-photo-thumb {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            overflow: hidden;
+        }
+
+        .person-photo-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .person-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-align: center;
+            min-width: 80px;
+        }
+
+        .person-status.active {
+            background: #27ae60;
+            color: white;
+        }
+
+        .person-status.inactive {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .person-clues-info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .person-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .person-actions button {
+            flex: 1;
+            min-width: 80px;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: bold;
+            color: white;
+        }
+
+        .clues-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .clue-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .clue-content {
+            flex: 1;
+            margin-right: 15px;
+        }
+
+        .clue-content strong {
+            color: #f39c12;
+        }
+
+        .clue-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .clue-actions button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8em;
+            font-weight: bold;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 Pannello di Controllo Gamemaster</h1>
+            <p>Gestisci la festa in tempo reale</p>
+        </div>
+
+        <!-- Tabs di navigazione -->
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('control')">🎯 Controllo Giochi</div>
+            <div class="tab" onclick="showTab('players')">👥 Giocatori</div>
+            <div class="tab" onclick="showTab('personaggi')">🎭 Personaggi</div>
+            <div class="tab" onclick="showTab('questions')">❓ Gestione Domande</div>
+            <div class="tab" onclick="showTab('indovina')">🕵️ Indovina Chi</div>
+            <div class="tab" onclick="showTab('lupus')">🐺 Lupus in Fabula</div>
+            <div class="tab" onclick="showTab('stats')">📊 Statistiche</div>
+        </div>
+
+        <!-- Tab Controllo Giochi -->
+        <div id="control-tab" class="tab-content active">
+            <div class="current-status waiting" id="current-status">
+                <h3>📢 Stato Attuale</h3>
+                <p id="status-text">Nessun gioco attivo - In attesa</p>
+                <p id="active-players">0 giocatori connessi</p>
+            </div>
+
+            <div class="control-grid">
+                <div class="control-section">
+                    <h3>🎯 Avvia Giochi</h3>
+                    <div class="game-controls">
+                        <button class="game-btn" onclick="startGame('quiz_personalizzato')">
+                            <span>🧠 Quiz Personalizzato</span>
+                            <span>●</span>
+                        </button>
+                        <button class="game-btn" onclick="startGame('indovina_chi')">
+                            <span>🕵️ Indovina Chi</span>
+                            <span>●</span>
+                        </button>
+                        <button class="game-btn" onclick="startGame('lupus_in_fabula')">
+                            <span>🐺 Lupus in Fabula</span>
+                            <span>●</span>
+                        </button>
+                        <button class="game-btn" onclick="startGame('votazione_costumi')">
+                            <span>🎭 Votazione Costumi</span>
+                            <span>●</span>
+                        </button>
+                        <input type="text" id="custom-message" placeholder="Messaggio personalizzato (opzionale)"
+                               style="width: 100%; padding: 10px; margin: 10px 0; border: none; border-radius: 10px; background: rgba(255,255,255,0.9); color: #333;">
+                        <button class="btn" onclick="stopGame()" style="width: 100%;">
+                            🛑 Ferma Gioco Attuale
+                        </button>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>📊 Statistiche Live</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number" id="total-players">0</div>
+                            <div class="stat-label">Giocatori Totali</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="active-participants">0</div>
+                            <div class="stat-label">Nel Gioco Attuale</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="completed-games">0</div>
+                            <div class="stat-label">Giochi Completati</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Giocatori -->
+        <div id="players-tab" class="tab-content">
+            <div class="control-section">
+                <h3>👥 Giocatori Registrati</h3>
+                <div class="players-grid" id="players-grid">
+                    <!-- I giocatori verranno caricati dinamicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Personaggi -->
+        <div id="personaggi-tab" class="tab-content">
+            <div class="control-section">
+                <h3>🎭 Gestione Personaggi</h3>
+                <button class="btn btn-success" onclick="showAddPersonaggioModal()">
+                    ➕ Aggiungi Nuovo Personaggio
+                </button>
+                <div class="personaggi-grid" id="personaggi-grid">
+                    <!-- I personaggi verranno caricati dinamicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Gestione Domande -->
+        <div id="questions-tab" class="tab-content">
+            <div class="control-section">
+                <h3>❓ Gestione Domande Quiz</h3>
+                <button class="btn btn-success" onclick="showAddQuestionModal()">
+                    ➕ Aggiungi Nuova Domanda
+                </button>
+                <div class="questions-list" id="questions-list">
+                    <!-- Le domande verranno caricate dinamicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Indovina Chi -->
+        <div id="indovina-tab" class="tab-content">
+            <div class="control-grid">
+                <!-- Controllo Partita -->
+                <div class="control-section">
+                    <h3>🎮 Controllo Partita</h3>
+                    <div class="current-game-status" id="indovina-game-status">
+                        <p><strong>Stato:</strong> <span id="indovina-status-text">Nessuna partita attiva</span></p>
+                        <p><strong>Persona:</strong> <span id="current-person-name">-</span></p>
+                        <p><strong>Indizio:</strong> <span id="current-clue-number">-</span> / <span id="total-clues">-</span></p>
+                        <p><strong>Risposte:</strong> <span id="current-responses">0</span></p>
+                    </div>
+
+                    <div style="margin: 20px 0;">
+                        <select id="person-selector" class="lupus-config-selector">
+                            <option value="">Scegli persona casuale</option>
+                        </select>
+                        <button class="btn btn-success" onclick="startIndovinaGame()" style="width: 100%; margin-bottom: 10px;">
+                            🚀 Avvia Nuova Partita
+                        </button>
+                    </div>
+
+                    <div class="game-controls" id="indovina-controls" style="display: none;">
+                        <button class="btn btn-secondary" onclick="nextIndovinaClue()" id="next-clue-btn" style="width: 100%; margin-bottom: 10px;">
+                            ➡️ Prossimo Indizio
+                        </button>
+                        <button class="btn" onclick="endIndovinaGame()" style="width: 100%;">
+                            🛑 Termina Partita
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Gestione Persone -->
+                <div class="control-section">
+                    <h3>👥 Gestione Persone</h3>
+                    <button class="btn btn-success" onclick="showAddPersonModal()" style="margin-bottom: 20px;">
+                        ➕ Aggiungi Persona
+                    </button>
+                    <div class="indovina-people-grid" id="indovina-people-grid">
+                        <!-- Persone verranno caricate dinamicamente -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistiche Live -->
+            <div class="control-section" style="margin-top: 30px;">
+                <h3>📊 Statistiche Live</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="indovina-total-people">0</div>
+                        <div class="stat-label">Persone Totali</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="indovina-active-players">0</div>
+                        <div class="stat-label">Giocatori Attivi</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="indovina-correct-answers">0</div>
+                        <div class="stat-label">Risposte Corrette</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="indovina-avg-time">0s</div>
+                        <div class="stat-label">Tempo Medio</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Lupus in Fabula -->
+        <div id="lupus-tab" class="tab-content">
+            <div class="control-grid">
+                <!-- Controllo Partita Lupus -->
+                <div class="control-section">
+                    <h3>🐺 Controllo Partita Lupus</h3>
+                    <div class="current-game-status" id="lupus-game-status">
+                        <p><strong>Stato:</strong> <span id="lupus-status-text">Nessuna partita attiva</span></p>
+                        <p><strong>Fase:</strong> <span id="lupus-current-phase">-</span></p>
+                        <p><strong>Turno:</strong> <span id="lupus-current-turn">-</span></p>
+                        <p><strong>Tempo rimanente:</strong> <span id="lupus-time-remaining">-</span></p>
+                        <p><strong>Vivi:</strong> Lupi <span id="lupus-wolves-alive">0</span> | Cittadini <span id="lupus-citizens-alive">0</span></p>
+                    </div>
+
+                    <!-- Configurazioni rapide -->
+                    <div style="margin: 20px 0;">
+                        <label for="lupus-config-selector" style="display: block; margin-bottom: 10px; font-weight: bold;">⚙️ Configurazione Rapida:</label>
+                        <select id="lupus-config-selector" class="lupus-config-selector">
+                            <option value="">Caricamento configurazioni...</option>
+                        </select>
+
+                        <button class="btn btn-success" onclick="startLupusGame()" style="width: 100%; margin-bottom: 10px;">
+                            🚀 Avvia Lupus in Fabula
+                        </button>
+                    </div>
+
+                    <!-- Controlli di fase -->
+                    <div class="lupus-phase-controls" id="lupus-phase-controls" style="display: none;">
+                        <h4 style="grid-column: 1/-1; text-align: center; margin-bottom: 15px;">🎮 Controlli Fase</h4>
+                        <button class="btn btn-secondary" onclick="changeLupusPhase('night')" id="btn-night">
+                            🌙 Notte
+                        </button>
+                        <button class="btn btn-secondary" onclick="changeLupusPhase('day')" id="btn-day">
+                            ☀️ Giorno
+                        </button>
+                        <button class="btn btn-secondary" onclick="changeLupusPhase('voting')" id="btn-voting" style="grid-column: 1/-1;">
+                            🗳️ Votazione
+                        </button>
+                        <button class="btn" onclick="endLupusGame()" style="background: #e74c3c; grid-column: 1/-1;">
+                            🛑 Termina Partita
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Giocatori in Partita -->
+                <div class="control-section">
+                    <h3>👥 Giocatori in Partita</h3>
+                    <div id="lupus-players-list" class="lupus-players-list">
+                        <p style="text-align: center; opacity: 0.7;">Nessuna partita attiva</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistiche e Cronologia -->
+            <div class="control-section" style="margin-top: 30px;">
+                <h3>📊 Statistiche Partita</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="lupus-total-players">0</div>
+                        <div class="stat-label">Giocatori Totali</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="lupus-current-turn-stat">0</div>
+                        <div class="stat-label">Turno Corrente</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="lupus-actions-count">0</div>
+                        <div class="stat-label">Azioni Eseguite</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="lupus-votes-count">0</div>
+                        <div class="stat-label">Voti Espressi</div>
+                    </div>
+                </div>
+
+                <!-- Log Eventi -->
+                <div style="margin-top: 30px;">
+                    <h4>📝 Log Eventi Recenti</h4>
+                    <div id="lupus-events-log" class="events-log">
+                        <p style="opacity: 0.7;">Nessun evento da mostrare</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Statistiche -->
+        <div id="stats-tab" class="tab-content">
+            <div class="control-section">
+                <h3>📊 Statistiche Dettagliate</h3>
+                <div id="detailed-stats">
+                    <!-- Statistiche dettagliate verranno caricate qui -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal per aggiungere/modificare domande -->
+    <div id="question-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeQuestionModal()">&times;</span>
+            <h3 id="modal-title">Aggiungi Nuova Domanda</h3>
+            <form id="question-form">
+                <input type="hidden" id="question-id">
+
+                <div class="form-group">
+                    <label for="question-text">Domanda:</label>
+                    <textarea id="question-text" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="option-a">Opzione A:</label>
+                    <input type="text" id="option-a" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="option-b">Opzione B:</label>
+                    <input type="text" id="option-b" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="option-c">Opzione C:</label>
+                    <input type="text" id="option-c" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="option-d">Opzione D:</label>
+                    <input type="text" id="option-d" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="correct-answer">Risposta Corretta:</label>
+                    <select id="correct-answer" required>
+                        <option value="">Seleziona...</option>
+                        <option value="a">A</option>
+                        <option value="b">B</option>
+                        <option value="c">C</option>
+                        <option value="d">D</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="category">Categoria:</label>
+                    <input type="text" id="category" value="generale">
+                </div>
+
+                <div style="display: flex; gap: 15px; justify-content: center; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeQuestionModal()">Annulla</button>
+                    <button type="submit" class="btn btn-success">Salva Domanda</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal per aggiungere/modificare personaggi -->
+    <div id="personaggio-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closePersonaggioModal()">&times;</span>
+            <h3 id="personaggio-modal-title">Aggiungi Nuovo Personaggio</h3>
+            <form id="personaggio-form">
+                <input type="hidden" id="personaggio-id">
+
+                <div class="form-group">
+                    <label for="personaggio-name">Nome Personaggio (con emoji):</label>
+                    <input type="text" id="personaggio-name" placeholder="es: 🦸 Supereroe" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="personaggio-description">Descrizione:</label>
+                    <textarea id="personaggio-description" placeholder="Descrizione del personaggio..."></textarea>
+                </div>
+
+                <div style="display: flex; gap: 15px; justify-content: center; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closePersonaggioModal()">Annulla</button>
+                    <button type="submit" class="btn btn-success">Salva Personaggio</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal per gestire persone Indovina Chi -->
+    <div id="person-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closePersonModal()">&times;</span>
+            <h3 id="person-modal-title">Aggiungi Nuova Persona</h3>
+            <form id="person-form">
+                <input type="hidden" id="person-id">
+
+                <div class="form-group">
+                    <label for="person-name">Nome:</label>
+                    <input type="text" id="person-name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="person-description">Descrizione:</label>
+                    <textarea id="person-description" placeholder="Breve descrizione della persona..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="person-photo">Foto (opzionale):</label>
+                    <input type="file" id="person-photo" accept="image/*">
+                    <small>Massimo 5MB - jpg, png, gif</small>
+                </div>
+
+                <div style="display: flex; gap: 15px; justify-content: center; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closePersonModal()">Annulla</button>
+                    <button type="submit" class="btn btn-success">Salva Persona</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal per gestire indizi -->
+    <div id="clues-modal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="close" onclick="closeCluesModal()">&times;</span>
+            <h3 id="clues-modal-title">Gestione Indizi</h3>
+
+            <div style="margin-bottom: 20px;">
+                <button class="btn btn-success" onclick="showAddClueForm()">
+                    ➕ Aggiungi Indizio
+                </button>
+            </div>
+
+            <!-- Form per aggiungere indizio -->
+            <div id="add-clue-form" style="display: none; background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <h4>Nuovo Indizio</h4>
+                <div class="form-group">
+                    <label for="clue-text">Testo Indizio:</label>
+                    <textarea id="clue-text" required placeholder="Inserisci l'indizio..."></textarea>
+                </div>
+                <div style="display: flex; gap: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="clue-order">Ordine (1=più difficile):</label>
+                        <select id="clue-order" required>
+                            <option value="1">1 - Più difficile (50 punti)</option>
+                            <option value="2">2 - Difficile (40 punti)</option>
+                            <option value="3">3 - Medio (30 punti)</option>
+                            <option value="4">4 - Facile (20 punti)</option>
+                            <option value="5">5 - Più facile (10 punti)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="clue-points">Punti:</label>
+                        <input type="number" id="clue-points" value="50" min="1" max="100" required>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn btn-secondary" onclick="hideAddClueForm()">Annulla</button>
+                    <button type="button" class="btn btn-success" onclick="saveClue()">Salva Indizio</button>
+                </div>
+            </div>
+
+            <!-- Lista indizi esistenti -->
+            <div class="clues-list" id="clues-list">
+                <!-- Indizi verranno caricati dinamicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal per conferma disconnessione -->
+    <div id="disconnect-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeDisconnectModal()">&times;</span>
+            <h3>⚠️ Conferma Azione</h3>
+            <p id="disconnect-message">Sei sicuro di voler disconnettere questo giocatore?</p>
+
+            <div class="form-group">
+                <label for="disconnect-reason">Motivo:</label>
+                <textarea id="disconnect-reason" placeholder="Inserisci il motivo (opzionale)..."></textarea>
+            </div>
+
+            <div style="display: flex; gap: 15px; justify-content: center; margin-top: 30px;">
+                <button type="button" class="btn btn-secondary" onclick="closeDisconnectModal()">Annulla</button>
+                <button type="button" class="btn" id="confirm-action-btn" onclick="confirmAction()">Conferma</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentGame = null;
+        let playersData = [];
+        let questionsData = [];
+        let personaggiData = [];
+        let pendingAction = null;
+
+        // Variabili per Indovina Chi
+        let indovinaPeople = [];
+        let currentIndovinaGame = null;
+        let selectedPersonForClues = null;
+
+        // Variabili per Lupus in Fabula
+        let lupusGameData = null;
+        let lupusConfigs = [];
+        let lupusUpdateInterval = null;
+
+        // Gestione tabs
+        function showTab(tabName) {
+            // Nasconde tutti i contenuti
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Rimuove classe attiva da tutti i tab
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Mostra il tab selezionato
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+
+            // Carica dati specifici per il tab
+            if (tabName === 'players') {
+                loadPlayers();
+            } else if (tabName === 'personaggi') {
+                loadPersonaggi();
+            } else if (tabName === 'questions') {
+                loadQuestions();
+            } else if (tabName === 'indovina') {
+                loadIndovinaData();
+            } else if (tabName === 'lupus') {
+                loadLupusData();
+            } else if (tabName === 'stats') {
+                loadDetailedStats();
+            }
+        }
+
+        // Gestione giochi
+        function startGame(gameType) {
+            const customMessage = document.getElementById('custom-message').value;
+            const message = customMessage || getDefaultMessage(gameType);
+
+            fetch('/gamemaster/set-game', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    gioco: gameType,
+                    messaggio: message
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentGame = gameType;
+                    updateGameStatus(gameType, message);
+                    updateButtonStates();
+                    showNotification(`${getGameName(gameType)} avviato!`);
+                    document.getElementById('custom-message').value = '';
+                }
+            })
+            .catch(error => {
+                showNotification('Errore durante l\'avvio del gioco', 'error');
+            });
+        }
+
+        function stopGame() {
+            fetch('/gamemaster/stop-game', {
+                method: 'POST',
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentGame = null;
+                    updateGameStatus(null, 'In attesa del prossimo gioco...');
+                    updateButtonStates();
+                    showNotification('Gioco fermato');
+                }
+            })
+            .catch(error => {
+                showNotification('Errore', 'error');
+            });
+        }
+
+        function updateGameStatus(game, message) {
+            const statusElement = document.getElementById('current-status');
+            const statusText = document.getElementById('status-text');
+
+            if (game) {
+                statusElement.className = 'current-status';
+                statusText.textContent = `${getGameName(game)} - ${message}`;
+            } else {
+                statusElement.className = 'current-status waiting';
+                statusText.textContent = message;
+            }
+        }
+
+        function updateButtonStates() {
+            const buttons = document.querySelectorAll('.game-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            if (currentGame) {
+                const activeBtn = document.querySelector(`[onclick*="${currentGame}"]`);
+                if (activeBtn) {
+                    activeBtn.classList.add('active');
+                }
+            }
+        }
+
+        // Gestione giocatori
+        function loadPlayers() {
+            fetch('/api/gamemaster/players')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    if (!Array.isArray(data)) {
+                        throw new Error('Formato dati non valido ricevuto dal server');
+                    }
+                    playersData = data;
+                    displayPlayers(data);
+                })
+                .catch(error => {
+                    console.error('Errore caricamento giocatori:', error);
+                    showNotification(`Errore caricamento giocatori: ${error.message}`, 'error');
+                    const grid = document.getElementById('players-grid');
+                    grid.innerHTML = `
+                        <div style="grid-column: 1/-1; text-align: center; padding: 20px;">
+                            <p>⚠️ Errore nel caricamento dei giocatori</p>
+                            <button class="btn" onclick="loadPlayers()" style="margin-top: 10px;">
+                                🔄 Riprova
+                            </button>
+                        </div>
+                    `;
+                });
+        }
+
+        function displayPlayers(players) {
+            const grid = document.getElementById('players-grid');
+
+            if (!Array.isArray(players)) {
+                console.error('displayPlayers: players non è un array', players);
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center;">Errore nel formato dati</div>';
+                return;
+            }
+
+            grid.innerHTML = '';
+
+            if (players.length === 0) {
+                grid.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                        <h3>👥 Nessun giocatore registrato</h3>
+                        <p>I giocatori appariranno qui una volta registrati</p>
+                    </div>
+                `;
+                return;
+            }
+
+            players.forEach(player => {
+                const card = document.createElement('div');
+                card.className = 'player-card';
+
+                if (player.escluso_da_gioco) {
+                    card.classList.add('excluded');
+                }
+
+                const photoUrl = player.foto_profilo ?
+                    `/static/uploads/${player.foto_profilo}` :
+                    null;
+
+                // Determina stato del giocatore
+                let statusClass = 'status-online';
+                let statusText = 'Online';
+
+                if (player.escluso_da_gioco) {
+                    statusClass = 'status-excluded';
+                    statusText = 'Escluso';
+                }
+
+                // Azioni disponibili
+                let actionsHtml = '';
+                if (player.escluso_da_gioco) {
+                    actionsHtml = `
+                        <button class="btn-restore" onclick="restorePlayer(${player.id}, '${player.nome}')">
+                            ↩️ Ripristina
+                        </button>
+                        <button class="btn-disconnect" onclick="showDisconnectModal(${player.id}, '${player.nome}', 'disconnect')">
+                            🚫 Disconnetti
+                        </button>
+                    `;
+                } else {
+                    actionsHtml = `
+                        <button class="btn-kick" onclick="showDisconnectModal(${player.id}, '${player.nome}', 'kick')">
+                            ⚠️ Escludi
+                        </button>
+                        <button class="btn-disconnect" onclick="showDisconnectModal(${player.id}, '${player.nome}', 'disconnect')">
+                            🚫 Disconnetti
+                        </button>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div class="player-status ${statusClass}">${statusText}</div>
+                    <div class="player-photo">
+                        ${photoUrl ?
+                            `<img src="${photoUrl}" alt="${player.nome}" onerror="this.style.display='none'; this.nextSibling.style.display='flex';">
+                             <span style="display: none;">${player.nome.charAt(0)}</span>` :
+                            `<span>${player.nome.charAt(0)}</span>`
+                        }
+                    </div>
+                    <h4>${player.nome}</h4>
+                    <p><strong>${player.personaggio}</strong></p>
+                    <p>Squadra: ${player.squadra}</p>
+                    <p><strong>${player.punti} punti</strong></p>
+                    ${player.ultima_attivita ? `<p><small>Ultima attività: ${player.ultima_attivita}</small></p>` : ''}
+                    <div class="player-actions">
+                        ${actionsHtml}
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+
+            // Aggiorna statistiche
+            document.getElementById('total-players').textContent = players.length;
+        }
+
+        // Gestione azioni giocatori
+        function showDisconnectModal(playerId, playerName, action) {
+            const modal = document.getElementById('disconnect-modal');
+            const message = document.getElementById('disconnect-message');
+            const confirmBtn = document.getElementById('confirm-action-btn');
+
+            pendingAction = { type: action, playerId: playerId, playerName: playerName };
+
+            if (action === 'kick') {
+                message.textContent = `Sei sicuro di voler escludere ${playerName} dal gioco corrente?`;
+                confirmBtn.textContent = '⚠️ Escludi dal Gioco';
+                confirmBtn.className = 'btn btn-kick';
+            } else {
+                message.textContent = `Sei sicuro di voler disconnettere completamente ${playerName}?`;
+                confirmBtn.textContent = '🚫 Disconnetti';
+                confirmBtn.className = 'btn btn-disconnect';
+            }
+
+            modal.style.display = 'block';
+        }
+
+        function closeDisconnectModal() {
+            document.getElementById('disconnect-modal').style.display = 'none';
+            document.getElementById('disconnect-reason').value = '';
+            pendingAction = null;
+        }
+
+        function confirmAction() {
+            if (!pendingAction) return;
+
+            const reason = document.getElementById('disconnect-reason').value ||
+                          (pendingAction.type === 'kick' ? 'Escluso dal gamemaster' : 'Disconnesso dal gamemaster');
+
+            const endpoint = pendingAction.type === 'kick' ?
+                            `/api/gamemaster/players/${pendingAction.playerId}/kick-from-game` :
+                            `/api/gamemaster/players/${pendingAction.playerId}/disconnect`;
+
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ reason: reason })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message);
+                    loadPlayers();
+                    closeDisconnectModal();
+                } else {
+                    showNotification(data.error || 'Errore durante l\'azione', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Errore di connessione', 'error');
+            });
+        }
+
+        function restorePlayer(playerId, playerName) {
+            if (!confirm(`Ripristinare ${playerName}?`)) return;
+
+            fetch(`/api/gamemaster/players/${playerId}/restore`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message);
+                    loadPlayers();
+                } else {
+                    showNotification(data.error || 'Errore durante il ripristino', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Errore di connessione', 'error');
+            });
+        }
+
+        // Gestione personaggi
+        function loadPersonaggi() {
+            fetch('/api/gamemaster/personaggi')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    personaggiData = data;
+                    displayPersonaggi(data);
+                })
+                .catch(error => {
+                    console.error('Errore caricamento personaggi:', error);
+                    showNotification(`Errore caricamento personaggi: ${error.message}`, 'error');
+                });
+        }
+
+        function displayPersonaggi(personaggi) {
+            const grid = document.getElementById('personaggi-grid');
+            grid.innerHTML = '';
+
+            if (personaggi.length === 0) {
+                grid.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                        <h3>🎭 Nessun personaggio disponibile</h3>
+                        <p>Aggiungi il primo personaggio per iniziare!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            personaggi.forEach(personaggio => {
+                const card = document.createElement('div');
+                card.className = 'personaggio-card';
+
+                if (personaggio.disponibile) {
+                    card.classList.add('available');
+                } else {
+                    card.classList.add('unavailable');
+                }
+
+                const emoji = personaggio.nome.split(' ')[0] || '🎭';
+                const nome = personaggio.nome.substring(personaggio.nome.indexOf(' ') + 1) || personaggio.nome;
+
+                let statusHtml = '';
+                let assignedHtml = '';
+                let actionsHtml = '';
+
+                if (personaggio.disponibile) {
+                    statusHtml = '<div class="personaggio-status available">Disponibile</div>';
+                    actionsHtml = `
+                        <button class="toggle-btn make-unavailable" onclick="togglePersonaggioAvailability(${personaggio.id}, false)">
+                            🔒 Disabilita
+                        </button>
+                        <button class="btn btn-secondary" onclick="editPersonaggio(${personaggio.id})">
+                            ✏️ Modifica
+                        </button>
+                        <button class="btn" onclick="deletePersonaggio(${personaggio.id})">
+                            🗑️ Elimina
+                        </button>
+                    `;
+                } else {
+                    statusHtml = '<div class="personaggio-status taken">Occupato</div>';
+                    if (personaggio.giocatore_nome) {
+                        assignedHtml = `<div class="personaggio-assigned">👤 ${personaggio.giocatore_nome}</div>`;
+                        actionsHtml = `
+                            <button class="btn btn-secondary" onclick="editPersonaggio(${personaggio.id})">
+                                ✏️ Modifica
+                            </button>
+                            <button class="btn-disconnect" onclick="showDisconnectModal(${personaggio.giocatore_id}, '${personaggio.giocatore_nome}', 'disconnect')">
+                                🚫 Disconnetti Giocatore
+                            </button>
+                        `;
+                    } else {
+                        actionsHtml = `
+                            <button class="toggle-btn" onclick="togglePersonaggioAvailability(${personaggio.id}, true)">
+                                🔓 Abilita
+                            </button>
+                            <button class="btn btn-secondary" onclick="editPersonaggio(${personaggio.id})">
+                                ✏️ Modifica
+                            </button>
+                            <button class="btn" onclick="deletePersonaggio(${personaggio.id})">
+                                🗑️ Elimina
+                            </button>
+                        `;
+                    }
+                }
+
+                card.innerHTML = `
+                    <div class="personaggio-header">
+                        <div class="personaggio-info">
+                            <h4>${emoji} ${nome}</h4>
+                            <p>${personaggio.descrizione}</p>
+                        </div>
+                        ${statusHtml}
+                    </div>
+                    ${assignedHtml}
+                    <div class="personaggio-actions">
+                        ${actionsHtml}
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        function showAddPersonaggioModal() {
+            document.getElementById('personaggio-modal-title').textContent = 'Aggiungi Nuovo Personaggio';
+            document.getElementById('personaggio-form').reset();
+            document.getElementById('personaggio-id').value = '';
+            document.getElementById('personaggio-modal').style.display = 'block';
+        }
+
+        function editPersonaggio(id) {
+            const personaggio = personaggiData.find(p => p.id === id);
+            if (!personaggio) return;
+
+            document.getElementById('personaggio-modal-title').textContent = 'Modifica Personaggio';
+            document.getElementById('personaggio-id').value = personaggio.id;
+            document.getElementById('personaggio-name').value = personaggio.nome;
+            document.getElementById('personaggio-description').value = personaggio.descrizione;
+            document.getElementById('personaggio-modal').style.display = 'block';
+        }
+
+        function closePersonaggioModal() {
+            document.getElementById('personaggio-modal').style.display = 'none';
+        }
+
+        function togglePersonaggioAvailability(id, makeAvailable) {
+            fetch(`/api/gamemaster/personaggi/${id}/toggle`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ disponibile: makeAvailable })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(makeAvailable ? 'Personaggio abilitato' : 'Personaggio disabilitato');
+                    loadPersonaggi();
+                } else {
+                    showNotification(data.error || 'Errore durante l\'operazione', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Errore di connessione', 'error');
+            });
+        }
+
+        function deletePersonaggio(id) {
+            const personaggio = personaggiData.find(p => p.id === id);
+            if (!personaggio) return;
+
+            if (!confirm(`Sei sicuro di voler eliminare il personaggio "${personaggio.nome}"?`)) return;
+
+            fetch(`/api/gamemaster/personaggi/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Personaggio eliminato');
+                    loadPersonaggi();
+                } else {
+                    showNotification(data.error || 'Errore durante l\'eliminazione', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Errore di connessione', 'error');
+            });
+        }
+
+        // Salvataggio personaggio
+        document.getElementById('personaggio-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const personaggioData = {
+                nome: document.getElementById('personaggio-name').value,
+                descrizione: document.getElementById('personaggio-description').value
+            };
+
+            const personaggioId = document.getElementById('personaggio-id').value;
+            const isEdit = personaggioId !== '';
+
+            const url = isEdit ?
+                `/api/gamemaster/personaggi/${personaggioId}` :
+                '/api/gamemaster/personaggi';
+
+            const method = isEdit ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(personaggioData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(isEdit ? 'Personaggio modificato' : 'Personaggio aggiunto');
+                    closePersonaggioModal();
+                    loadPersonaggi();
+                } else {
+                    showNotification(data.error || 'Errore durante il salvataggio', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Errore di connessione', 'error');
+            });
+        });
+
+        // Gestione domande
+        function loadQuestions() {
+            fetch('/api/gamemaster/quiz-questions')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    questionsData = data;
+                    displayQuestions(data);
+                })
+                .catch(error => {
+                    console.error('Errore caricamento domande:', error);
+                    showNotification(`Errore caricamento domande: ${error.message}`, 'error');
+                    const list = document.getElementById('questions-list');
+                    list.innerHTML = `
+                        <div style="text-align: center; padding: 20px;">
+                            <p>⚠️ Errore nel caricamento delle domande</p>
+                            <button class="btn" onclick="loadQuestions()" style="margin-top: 10px;">
+                                🔄 Riprova
+                            </button>
+                        </div>
+                    `;
+                });
+        }
+
+        function displayQuestions(questions) {
+            const list = document.getElementById('questions-list');
+
+            if (!Array.isArray(questions)) {
+                console.error('displayQuestions: questions non è un array', questions);
+                list.innerHTML = '<div style="text-align: center;">Errore nel formato dati</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+
+            if (questions.length === 0) {
+                list.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <h3>❓ Nessuna domanda disponibile</h3>
+                        <p>Aggiungi la prima domanda per il quiz!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            questions.forEach(question => {
+                const item = document.createElement('div');
+                item.className = 'question-item';
+
+                item.innerHTML = `
+                    <div class="question-text">
+                        <strong>${question.domanda}</strong><br>
+                        <small>Categoria: ${question.categoria || 'generale'} | Risposta: ${question.risposta_corretta.toUpperCase()}</small>
+                    </div>
+                    <div class="question-actions">
+                        <button class="btn btn-secondary" onclick="editQuestion(${question.id})">Modifica</button>
+                        <button class="btn" onclick="deleteQuestion(${question.id})">Elimina</button>
+                    </div>
+                `;
+
+                list.appendChild(item);
+            });
+        }
+
+        function showAddQuestionModal() {
+            document.getElementById('modal-title').textContent = 'Aggiungi Nuova Domanda';
+            document.getElementById('question-form').reset();
+            document.getElementById('question-id').value = '';
+            document.getElementById('question-modal').style.display = 'block';
+        }
+
+        function editQuestion(id) {
+            const question = questionsData.find(q => q.id === id);
+            if (!question) return;
+
+            document.getElementById('modal-title').textContent = 'Modifica Domanda';
+            document.getElementById('question-id').value = question.id;
+            document.getElementById('question-text').value = question.domanda;
+            document.getElementById('option-a').value = question.opzione_a;
+            document.getElementById('option-b').value = question.opzione_b;
+            document.getElementById('option-c').value = question.opzione_c;
+            document.getElementById('option-d').value = question.opzione_d;
+            document.getElementById('correct-answer').value = question.risposta_corretta;
+            document.getElementById('category').value = question.categoria;
+            document.getElementById('question-modal').style.display = 'block';
+        }
+
+        function closeQuestionModal() {
+            document.getElementById('question-modal').style.display = 'none';
+        }
+
+        function deleteQuestion(id) {
+            if (!confirm('Sei sicuro di voler eliminare questa domanda?')) return;
+
+            fetch(`/api/gamemaster/quiz-questions/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Domanda eliminata');
+                    loadQuestions();
+                }
+            })
+            .catch(error => {
+                showNotification('Errore eliminazione domanda', 'error');
+            });
+        }
+
+        // Salvataggio domanda
+        document.getElementById('question-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const questionData = {
+                domanda: document.getElementById('question-text').value,
+                opzione_a: document.getElementById('option-a').value,
+                opzione_b: document.getElementById('option-b').value,
+                opzione_c: document.getElementById('option-c').value,
+                opzione_d: document.getElementById('option-d').value,
+                risposta_corretta: document.getElementById('correct-answer').value,
+                categoria: document.getElementById('category').value
+            };
+
+            const questionId = document.getElementById('question-id').value;
+            const isEdit = questionId !== '';
+
+            const url = isEdit ?
+                `/api/gamemaster/quiz-questions/${questionId}` :
+                '/api/gamemaster/quiz-questions';
+
+            const method = isEdit ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(questionData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(isEdit ? 'Domanda modificata' : 'Domanda aggiunta');
+                    closeQuestionModal();
+                    loadQuestions();
+                }
+            })
+            .catch(error => {
+                showNotification('Errore salvataggio domanda', 'error');
+            });
+        });
+
+        // ========================
+        // INDOVINA CHI - GESTIONE GAMEMASTER
+        // ========================
+
+        function loadIndovinaData() {
+            loadIndovinaPeople();
+            loadIndovinaGameStatus();
+            updateIndovinaStats();
+        }
+
+        function loadIndovinaPeople() {
+            fetch('/api/gamemaster/indovina-persone')
+                .then(response => response.json())
+                .then(data => {
+                    indovinaPeople = data;
+                    displayIndovinaPeople(data);
+                    updatePersonSelector(data);
+                })
+                .catch(error => {
+                    console.error('Errore caricamento persone:', error);
+                    showNotification('Errore caricamento persone', 'error');
+                });
+        }
+
+        function displayIndovinaPeople(people) {
+            const grid = document.getElementById('indovina-people-grid');
+            grid.innerHTML = '';
+
+            if (people.length === 0) {
+                grid.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                        <h3>👥 Nessuna persona disponibile</h3>
+                        <p>Aggiungi la prima persona per iniziare!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            people.forEach(person => {
+                const card = document.createElement('div');
+                card.className = 'person-card';
+
+                if (person.attivo) {
+                    card.classList.add('active');
+                } else {
+                    card.classList.add('inactive');
+                }
+
+                const photoHtml = person.foto_filename ?
+                    `<img src="/static/uploads/${person.foto_filename}" alt="${person.nome}">` :
+                    `<span>${person.nome.charAt(0).toUpperCase()}</span>`;
+
+                const statusClass = person.attivo ? 'active' : 'inactive';
+                const statusText = person.attivo ? 'Attiva' : 'Disattivata';
+
+                card.innerHTML = `
+                    <div class="person-header">
+                        <div class="person-info">
+                            <h4>${person.nome}</h4>
+                            <p>${person.descrizione || 'Nessuna descrizione'}</p>
+                        </div>
+                        <div class="person-photo-thumb">${photoHtml}</div>
+                    </div>
+
+                    <div class="person-status ${statusClass}">${statusText}</div>
+
+                    <div class="person-clues-info">
+                        <strong>${person.num_indizi}</strong> indizi configurati
+                        ${person.num_indizi < 3 ? '<br><small style="color: #e74c3c;">⚠️ Servono almeno 3 indizi</small>' : ''}
+                    </div>
+
+                    <div class="person-actions">
+                        <button class="btn btn-secondary" onclick="editPerson(${person.id})">
+                            ✏️ Modifica
+                        </button>
+                        <button class="btn btn-secondary" onclick="manageClues(${person.id}, '${person.nome}')">
+                            💡 Indizi (${person.num_indizi})
+                        </button>
+                        <button class="btn ${person.attivo ? 'btn-disconnect' : 'btn-success'}"
+                                onclick="togglePersonStatus(${person.id}, ${!person.attivo})">
+                            ${person.attivo ? '🔒 Disattiva' : '🔓 Attiva'}
+                        </button>
+                        <button class="btn" onclick="deletePerson(${person.id})"
+                                style="background: #e74c3c;">
+                            🗑️ Elimina
+                        </button>
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        function updatePersonSelector(people) {
+            const selector = document.getElementById('person-selector');
+            selector.innerHTML = '<option value="">Scegli persona casuale</option>';
+
+            people.filter(p => p.attivo && p.num_indizi >= 3).forEach(person => {
+                const option = document.createElement('option');
+                option.value = person.id;
+                option.textContent = `${person.nome} (${person.num_indizi} indizi)`;
+                selector.appendChild(option);
+            });
+        }
+
+        function startIndovinaGame() {
+            const personId = document.getElementById('person-selector').value || null;
+
+            fetch('/api/gamemaster/indovina-start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ persona_id: personId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Partita di Indovina Chi avviata!');
+                    loadIndovinaGameStatus();
+                } else {
+                    showNotification(data.error || 'Errore avvio partita', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Errore di connessione', 'error');
+            });
+        }
+
+        function nextIndovinaClue() {
+            fetch('/api/gamemaster/indovina-next-clue', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.game_ended) {
+                        showNotification('Partita terminata - tutti gli indizi esauriti');
+                    } else {
+                        showNotification(`Passato all'indizio #${data.next_clue}`);
+                    }
+                    loadIndovinaGameStatus();
+                } else {
+                    showNotification(data.error || 'Errore', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Errore di connessione', 'error');
+            });
+        }
+
+        function endIndovinaGame() {
+            if (!confirm('Sei sicuro di voler terminare la partita corrente?')) return;
+
+            fetch('/api/gamemaster/indovina-end', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Partita terminata');
+                    loadIndovinaGameStatus();
+                } else {
+                    showNotification(data.error || 'Errore', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Errore di connessione', 'error');
+            });
+        }
+
+        function loadIndovinaGameStatus() {
+            fetch('/api/indovina-status')
+                .then(response => response.json())
+                .then(data => {
+                    updateIndovinaGameDisplay(data);
+                })
+                .catch(error => {
+                    console.error('Errore stato gioco:', error);
+                });
+        }
+
+        function updateIndovinaGameDisplay(data) {
+            const statusText = document.getElementById('indovina-status-text');
+            const personName = document.getElementById('current-person-name');
+            const clueNumber = document.getElementById('current-clue-number');
+            const totalClues = document.getElementById('total-clues');
+            const responses = document.getElementById('current-responses');
+            const controls = document.getElementById('indovina-controls');
+
+            if (data.game_active) {
+                statusText.textContent = 'Partita attiva';
+                personName.textContent = data.persona_nome;
+                clueNumber.textContent = data.indizio_corrente;
+                totalClues.textContent = '5'; // Assumiamo max 5 indizi
+                responses.textContent = '0'; // Da implementare
+                controls.style.display = 'block';
+
+                // Disabilita prossimo indizio se ultimo
+                const nextBtn = document.getElementById('next-clue-btn');
+                nextBtn.disabled = data.indizio_corrente >= 5;
+            } else {
+                statusText.textContent = 'Nessuna partita attiva';
+                personName.textContent = '-';
+                clueNumber.textContent = '-';
+                totalClues.textContent = '-';
+                responses.textContent = '0';
+                controls.style.display = 'none';
+            }
+        }
+
+        function showAddPersonModal() {
+            document.getElementById('person-modal-title').textContent = 'Aggiungi Nuova Persona';
+            document.getElementById('person-form').reset();
+            document.getElementById('person-id').value = '';
+            document.getElementById('person-modal').style.display = 'block';
+        }
+
+        function editPerson(id) {
+            const person = indovinaPeople.find(p => p.id === id);
+            if (!person) return;
+
+            document.getElementById('person-modal-title').textContent = 'Modifica Persona';
+            document.getElementById('person-id').value = person.id;
+            document.getElementById('person-name').value = person.nome;
+            document.getElementById('person-description').value = person.descrizione || '';
+            document.getElementById('person-modal').style.display = 'block';
+        }
+
+        function closePersonModal() {
+            document.getElementById('person-modal').style.display = 'none';
+        }
+
+        function togglePersonStatus(id, makeActive) {
+            fetch(`/api/gamemaster/indovina-persone/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    nome: indovinaPeople.find(p => p.id === id).nome,
+                    descrizione: indovinaPeople.find(p => p.id === id).descrizione,
+                    attivo: makeActive
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(makeActive ? 'Persona attivata' : 'Persona disattivata');
+                    loadIndovinaPeople();
+                } else {
+                    showNotification(data.error || 'Errore', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Errore di connessione', 'error');
+            });
+        }
+
+        function deletePerson(id) {
+            const person = indovinaPeople.find(p => p.id === id);
+            if (!person) return;
+
+            if (!confirm(`Sei sicuro di voler eliminare "${person.nome}"? Tutti gli indizi verranno eliminati.`)) return;
+
+            fetch(`/api/gamemaster/indovina-persone/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Persona eliminata');
+                    loadIndovinaPeople();
+                } else {
+                    showNotification(data.error || 'Errore eliminazione', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Errore di connessione', 'error');
+            });
+        }
+
+        // Salvataggio persona
+        document.getElementById('person-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const personId = document.getElementById('person-id').value;
+            const isEdit = personId !== '';
+
+            const formData = new FormData();
+            const photoFile = document.getElementById('person-photo').files[0];
+
+            // Prima salva i dati della persona
+            const personData = {
+                nome: document.getElementById('person-name').value,
+                descrizione: document.getElementById('person-description').value,
+                attivo: true
+            };
+
+            const url = isEdit ?
+                `/api/gamemaster/indovina-persone/${personId}` :
+                '/api/gamemaster/indovina-persone';
+            const method = isEdit ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(personData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const savedPersonId = isEdit ? personId : data.persona_id;
+
+                    // Se c'è una foto, caricala separatamente
+                    if (photoFile) {
+                        const photoFormData = new FormData();
+                        photoFormData.append('foto', photoFile);
+                        photoFormData.append('persona_id', savedPersonId);
+
+                        return fetch('/upload-foto-indovina', {
+                            method: 'POST',
+                            body: photoFormData
+                        });
+                    } else {
+                        return Promise.resolve({ ok: true });
+                    }
+                } else {
+                    throw new Error(data.error || 'Errore salvataggio persona');
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    showNotification(isEdit ? 'Persona modificata' : 'Persona aggiunta');
+                    closePersonModal();
+                    loadIndovinaPeople();
+                } else {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'Errore caricamento foto');
+                    });
+                }
+            })
+            .catch(error => {
+                showNotification(error.message || 'Errore salvataggio', 'error');
+            });
+        });
+
+        // Gestione indizi
+        function manageClues(personId, personName) {
+            selectedPersonForClues = personId;
+            document.getElementById('clues-modal-title').textContent = `Indizi per ${personName}`;
+            document.getElementById('clues-modal').style.display = 'block';
+            loadClues(personId);
+        }
+
+        function closeCluesModal() {
+            document.getElementById('clues-modal').style.display = 'none';
+            hideAddClueForm();
+        }
+
+        function showAddClueForm() {
+            document.getElementById('add-clue-form').style.display = 'block';
+
+            // Auto-imposta ordine successivo
+            fetch(`/api/gamemaster/indovina-indizi/${selectedPersonForClues}`)
+                .then(response => response.json())
+                .then(data => {
+                    const nextOrder = data.length + 1;
+                    if (nextOrder <= 5) {
+                        document.getElementById('clue-order').value = nextOrder;
+                        const points = [50, 40, 30, 20, 10];
+                        document.getElementById('clue-points').value = points[nextOrder - 1] || 10;
+                    }
+                });
+        }
+
+        function hideAddClueForm() {
+            document.getElementById('add-clue-form').style.display = 'none';
+            document.getElementById('clue-text').value = '';
+        }
+
+        function loadClues(personId) {
+            fetch(`/api/gamemaster/indovina-indizi/${personId}`)
+                .then(response => response.json())
+                .then(data => {
+                    displayClues(data);
+                })
+                .catch(error => {
+                    console.error('Errore caricamento indizi:', error);
+                });
+        }
+
+        function displayClues(clues) {
+            const list = document.getElementById('clues-list');
+            list.innerHTML = '';
+
+            if (clues.length === 0) {
+                list.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <h3>💡 Nessun indizio configurato</h3>
+                        <p>Aggiungi il primo indizio per questa persona!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            clues.forEach(clue => {
+                const item = document.createElement('div');
+                item.className = 'clue-item';
+
+                item.innerHTML = `
+                    <div class="clue-content">
+                        <strong>Indizio #${clue.ordine}</strong> (${clue.punti} punti)<br>
+                        ${clue.indizio}
+                    </div>
+                    <div class="clue-actions">
+                        <button class="btn btn-secondary" onclick="editClue(${clue.id}, '${clue.indizio}', ${clue.ordine}, ${clue.punti})">
+                            Modifica
+                        </button>
+                        <button class="btn" onclick="deleteClue(${clue.id})" style="background: #e74c3c;">
+                            Elimina
+                        </button>
+                    </div>
+                `;
+
+                list.appendChild(item);
+            });
+        }
+
+        function saveClue() {
+            const clueData = {
+                persona_id: selectedPersonForClues,
+                indizio: document.getElementById('clue-text').value,
+                ordine: parseInt(document.getElementById('clue-order').value),
+                punti: parseInt(document.getElementById('clue-points').value)
+            };
+
+            fetch('/api/gamemaster/indovina-indizi', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(clueData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Indizio aggiunto');
+                    hideAddClueForm();
+                    loadClues(selectedPersonForClues);
+                    loadIndovinaPeople(); // Aggiorna contatore indizi
+                } else {
+                    showNotification(data.error || 'Errore salvataggio indizio', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Errore di connessione', 'error');
+            });
+        }
+
+        function deleteClue(clueId) {
+            if (!confirm('Sei sicuro di voler eliminare questo indizio?')) return;
+
+            fetch(`/api/gamemaster/indovina-indizi/${clueId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Indizio eliminato');
+                    loadClues(selectedPersonForClues);
+                    loadIndovinaPeople();
+                }
+            })
+            .catch(error => {
+                showNotification('Errore eliminazione indizio', 'error');
+            });
+        }
+
+        function updateIndovinaStats() {
+            document.getElementById('indovina-total-people').textContent = indovinaPeople.length;
+            document.getElementById('indovina-active-players').textContent = Math.floor(Math.random() * 10); // Placeholder
+            document.getElementById('indovina-correct-answers').textContent = Math.floor(Math.random() * 50); // Placeholder
+            document.getElementById('indovina-avg-time').textContent = Math.floor(Math.random() * 30) + 's'; // Placeholder
+        }
+
+        // ========================
+        // LUPUS IN FABULA - GESTIONE GAMEMASTER
+        // ========================
+
+        function loadLupusData() {
+            loadLupusConfigurations();
+            loadLupusGameStatus();
+            startLupusUpdates();
+        }
+
+        function loadLupusConfigurations() {
+            fetch('/api/gamemaster/lupus-configs')
+                .then(response => response.json())
+                .then(data => {
+                    lupusConfigs = data;
+                    updateLupusConfigSelector(data);
+                })
+                .catch(error => {
+                    console.error('Errore caricamento configurazioni Lupus:', error);
+                    showNotification('Errore caricamento configurazioni', 'error');
+                });
+        }
+
+        function updateLupusConfigSelector(configs) {
+            const selector = document.getElementById('lupus-config-selector');
+            selector.innerHTML = '<option value="">Configurazione personalizzata</option>';
+
+            configs.forEach(config => {
+                const option = document.createElement('option');
+                option.value = config.id;
+                option.textContent = `${config.nome} (${config.min_giocatori}-${config.max_giocatori} giocatori)`;
+                selector.appendChild(option);
+            });
+        }
+
+        function startLupusGame() {
+            const configId = document.getElementById('lupus-config-selector').value;
+
+            if (!configId) {
+                showNotification('Seleziona una configurazione', 'error');
+                return;
+            }
+
+            if (!confirm('Sei sicuro di voler avviare una nuova partita di Lupus in Fabula?')) {
+                return;
+            }
+
+            fetch('/api/gamemaster/lupus-start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ config_id: parseInt(configId) })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(`🐺 Lupus in Fabula avviato! ${data.giocatori_assegnati} giocatori pronti`);
+                    loadLupusGameStatus();
+
+                    // Attiva anche il gioco nel sistema globale
+                    startGame('lupus_in_fabula');
+                } else {
+                    showNotification(data.error || 'Errore avvio partita', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Errore avvio Lupus:', error);
+                showNotification('Errore di connessione', 'error');
+            });
+        }
+
+        function changeLupusPhase(newPhase) {
+            if (!lupusGameData || !lupusGameData.game_active) {
+                showNotification('Nessuna partita attiva', 'error');
+                return;
+            }
+
+            const phaseNames = {
+                'night': 'Notte',
+                'day': 'Giorno',
+                'voting': 'Votazione'
+            };
+
+            if (!confirm(`Passare alla fase: ${phaseNames[newPhase]}?`)) {
+                return;
+            }
+
+            fetch('/api/gamemaster/lupus-phase', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ phase: newPhase })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(`✅ Fase cambiata: ${phaseNames[newPhase]}`);
+                    loadLupusGameStatus();
+                } else {
+                    showNotification(data.error || 'Errore cambio fase', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Errore cambio fase:', error);
+                showNotification('Errore di connessione', 'error');
+            });
+        }
+
+        function endLupusGame() {
+            if (!confirm('Sei sicuro di voler terminare la partita corrente? Questa azione non può essere annullata.')) {
+                return;
+            }
+
+            fetch('/api/gamemaster/lupus-phase', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ phase: 'ended' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('🏁 Partita terminata');
+                    loadLupusGameStatus();
+                    stopGame(); // Ferma anche il gioco globale
+                } else {
+                    showNotification(data.error || 'Errore terminazione partita', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Errore terminazione:', error);
+                showNotification('Errore di connessione', 'error');
+            });
+        }
+
+        function loadLupusGameStatus() {
+            fetch('/api/gamemaster/lupus-status')
+                .then(response => response.json())
+                .then(data => {
+                    lupusGameData = data;
+                    updateLupusGameDisplay(data);
+                })
+                .catch(error => {
+                    console.error('Errore stato Lupus:', error);
+                });
+        }
+
+        function updateLupusGameDisplay(data) {
+            // Aggiorna status text
+            const statusText = document.getElementById('lupus-status-text');
+            const phaseText = document.getElementById('lupus-current-phase');
+            const turnText = document.getElementById('lupus-current-turn');
+            const timeText = document.getElementById('lupus-time-remaining');
+            const wolvesText = document.getElementById('lupus-wolves-alive');
+            const citizensText = document.getElementById('lupus-citizens-alive');
+            const controls = document.getElementById('lupus-phase-controls');
+
+            if (data.game_active) {
+                statusText.textContent = 'Partita attiva';
+                phaseText.textContent = getPhaseDisplayName(data.fase_corrente);
+                turnText.textContent = data.turno;
+                timeText.textContent = formatTime(data.tempo_rimanente);
+                wolvesText.textContent = data.vivi_lupi;
+                citizensText.textContent = data.vivi_cittadini;
+                controls.style.display = 'grid';
+
+                // Highlight fase corrente
+                document.querySelectorAll('[id^="btn-"]').forEach(btn => {
+                    btn.style.background = 'linear-gradient(45deg, #4ecdc4, #44a08d)';
+                });
+
+                const currentBtn = document.getElementById(`btn-${data.fase_corrente}`);
+                if (currentBtn) {
+                    currentBtn.style.background = 'linear-gradient(45deg, #f39c12, #e67e22)';
+                    currentBtn.classList.add('active');
+                }
+
+                // Aggiorna lista giocatori
+                updateLupusPlayersList(data.partecipanti);
+
+                // Aggiorna statistiche
+                document.getElementById('lupus-total-players').textContent = data.partecipanti.length;
+                document.getElementById('lupus-current-turn-stat').textContent = data.turno;
+
+            } else {
+                statusText.textContent = 'Nessuna partita attiva';
+                phaseText.textContent = '-';
+                turnText.textContent = '-';
+                timeText.textContent = '-';
+                wolvesText.textContent = '0';
+                citizensText.textContent = '0';
+                controls.style.display = 'none';
+
+                document.getElementById('lupus-players-list').innerHTML =
+                    '<p style="text-align: center; opacity: 0.7;">Nessuna partita attiva</p>';
+            }
+        }
+
+        function updateLupusPlayersList(participants) {
+            const list = document.getElementById('lupus-players-list');
+            list.innerHTML = '';
+
+            if (participants.length === 0) {
+                list.innerHTML = '<p style="text-align: center; opacity: 0.7;">Nessun giocatore</p>';
+                return;
+            }
+
+            participants.forEach(player => {
+                const item = document.createElement('div');
+                item.className = `lupus-player-item team-${player.team}`;
+
+                if (player.stato !== 'vivo') {
+                    item.classList.add('dead');
+                }
+
+                const photoHtml = player.foto_profilo ?
+                    `<img src="/static/uploads/${player.foto_profilo}" alt="${player.nome}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">` :
+                    `<div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-weight: bold;">${player.nome.charAt(0)}</div>`;
+
+                const statusIcon = {
+                    'vivo': '💚',
+                    'morto': '💀',
+                    'eliminato': '⚖️'
+                }[player.stato] || '❓';
+
+                item.innerHTML = `
+                    <div style="margin-right: 15px;">${photoHtml}</div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 3px;">
+                            ${player.emoji} ${player.nome}
+                        </div>
+                        <div style="font-size: 0.9em; opacity: 0.8;">
+                            ${player.ruolo} | ${player.team}
+                        </div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.2em;">${statusIcon}</div>
+                        <div style="font-size: 0.8em; opacity: 0.7;">${player.stato}</div>
+                        ${player.morte_turno ? `<div style="font-size: 0.7em;">Turno ${player.morte_turno}</div>` : ''}
+                    </div>
+                `;
+
+                list.appendChild(item);
+            });
+        }
+
+        function getTeamColor(team) {
+            const colors = {
+                'lupi': '#e74c3c',
+                'cittadini': '#3498db',
+                'neutral': '#f39c12'
+            };
+            return colors[team] || '#95a5a6';
+        }
+
+        function getPhaseDisplayName(phase) {
+            const names = {
+                'setup': 'Preparazione',
+                'night': 'Notte 🌙',
+                'day': 'Giorno ☀️',
+                'voting': 'Votazione 🗳️',
+                'ended': 'Terminata 🏁'
+            };
+            return names[phase] || phase;
+        }
+
+        function formatTime(seconds) {
+            if (seconds <= 0) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function startLupusUpdates() {
+            // Aggiorna ogni 3 secondi durante una partita
+            if (lupusUpdateInterval) {
+                clearInterval(lupusUpdateInterval);
+            }
+
+            lupusUpdateInterval = setInterval(() => {
+                if (document.getElementById('lupus-tab').classList.contains('active')) {
+                    loadLupusGameStatus();
+                }
+            }, 3000);
+        }
+
+        // Utility functions
+        function getGameName(gameType) {
+            const names = {
+                'quiz_personalizzato': 'Quiz Personalizzato',
+                'indovina_chi': 'Indovina Chi',
+                'lupus_in_fabula': 'Lupus in Fabula',
+                'votazione_costumi': 'Votazione Costumi'
+            };
+            return names[gameType] || gameType;
+        }
+
+        function getDefaultMessage(gameType) {
+            const messages = {
+                'quiz_personalizzato': 'È ora di testare quanto conoscete il festeggiato!',
+                'indovina_chi': 'Riuscite a indovinare chi si nasconde dietro ogni indizio?',
+                'lupus_in_fabula': 'Chi sono i lupi tra voi? La caccia è iniziata! 🐺',
+                'votazione_costumi': 'Votate il costume più bello della serata!'
+            };
+            return messages[gameType] || 'Nuovo gioco disponibile!';
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 10px;
+                color: white;
+                font-weight: bold;
+                z-index: 1000;
+                background: ${type === 'error' ? '#e74c3c' : '#27ae60'};
+                transform: translateX(400px);
+                transition: transform 0.3s ease;
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => notification.style.transform = 'translateX(0)', 100);
+            setTimeout(() => {
+                notification.style.transform = 'translateX(400px)';
+                setTimeout(() => document.body.removeChild(notification), 300);
+            }, 3000);
+        }
+
+        function loadDetailedStats() {
+            document.getElementById('detailed-stats').innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">${playersData.length}</div>
+                        <div class="stat-label">Giocatori Registrati</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${questionsData.length}</div>
+                        <div class="stat-label">Domande Disponibili</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${personaggiData.length}</div>
+                        <div class="stat-label">Personaggi Totali</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${personaggiData.filter(p => p.disponibile).length}</div>
+                        <div class="stat-label">Personaggi Disponibili</div>
+                    </div>
+                </div>
+                <div class="control-section" style="margin-top: 30px;">
+                    <h3>📈 Statistiche Avanzate</h3>
+                    <div id="advanced-stats">
+                        <p>• Giocatori attivi negli ultimi 10 minuti: ${Math.floor(playersData.length * 0.8)}</p>
+                        <p>• Percentuale partecipazione giochi: ${Math.floor(Math.random() * 30 + 70)}%</p>
+                        <p>• Squadra in testa: ${getLeadingTeam()}</p>
+                        <p>• Media punti per giocatore: ${getAveragePoints()}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getLeadingTeam() {
+            const teams = ['Rossi', 'Blu', 'Verdi', 'Gialli'];
+            return teams[Math.floor(Math.random() * teams.length)];
+        }
+
+        function getAveragePoints() {
+            if (playersData.length === 0) return 0;
+            const totalPoints = playersData.reduce((sum, player) => sum + (player.punti || 0), 0);
+            return Math.round(totalPoints / playersData.length);
+        }
+
+        function updateStats() {
+            const totalPlayers = playersData.length || 0;
+            const activeParticipants = currentGame ? Math.floor(totalPlayers * 0.8) : 0;
+            const completedGames = questionsData.length > 0 ? Math.floor(questionsData.length / 5) : 0;
+
+            document.getElementById('total-players').textContent = totalPlayers;
+            document.getElementById('active-participants').textContent = activeParticipants;
+            document.getElementById('completed-games').textContent = completedGames;
+            document.getElementById('active-players').textContent = `${totalPlayers} giocatori connessi`;
+        }
+
+        // Inizializzazione
+        window.onload = function() {
+            loadPlayers();
+            updateStats();
+
+            // Aggiorna ogni 10 secondi
+            setInterval(() => {
+                const activeTab = document.querySelector('.tab-content.active').id;
+                if (activeTab === 'players-tab') {
+                    loadPlayers();
+                } else if (activeTab === 'personaggi-tab') {
+                    loadPersonaggi();
+                } else if (activeTab === 'lupus-tab') {
+                    loadLupusGameStatus();
+                }
+                updateStats();
+            }, 10000);
+        };
+
+        // Chiudi modal cliccando fuori
+        window.onclick = function(event) {
+            const questionModal = document.getElementById('question-modal');
+            const personaggioModal = document.getElementById('personaggio-modal');
+            const disconnectModal = document.getElementById('disconnect-modal');
+            const personModal = document.getElementById('person-modal');
+            const cluesModal = document.getElementById('clues-modal');
+
+            if (event.target == questionModal) {
+                closeQuestionModal();
+            } else if (event.target == personaggioModal) {
+                closePersonaggioModal();
+            } else if (event.target == disconnectModal) {
+                closeDisconnectModal();
+            } else if (event.target == personModal) {
+                closePersonModal();
+            } else if (event.target == cluesModal) {
+                closeCluesModal();
+            }
+        }
+        // Aggiungi queste funzioni al tuo static/js/lupus_gamemaster.js o gamemaster_panel.js
+
+// Funzione per terminare la partita
+function endLupusGame() {
+    showConfirmModal(
+        '🛑 Terminare la partita?',
+        'Questo terminerà immediatamente la partita corrente e assegnerà i punti ai vincitori. Sei sicuro?',
+        () => executeEndGame(false)
+    );
+}
+
+// Funzione per forzare la fine con un vincitore specifico
+function forceEndLupusGame(winnerTeam) {
+    const teamNames = {
+        'lupi': 'Lupi 🐺',
+        'cittadini': 'Cittadini 👥',
+        'pareggio': 'Pareggio ⚖️'
+    };
+
+    showConfirmModal(
+        `🏆 Dichiarare vittoria ${teamNames[winnerTeam]}?`,
+        `Questo terminerà la partita dichiarando vincitori i ${teamNames[winnerTeam]}. I punti verranno assegnati di conseguenza.`,
+        () => executeEndGame(true, winnerTeam)
+    );
+}
+
+function executeEndGame(forceEnd = false, winnerTeam = null) {
+    showLoading('Terminando partita...');
+
+    const requestData = {
+        force_end: forceEnd
+    };
+
+    if (winnerTeam) {
+        requestData.winner_team = winnerTeam;
+    }
+
+    fetch('/api/gamemaster/lupus-end-game', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            showGameEndModal(data);
+            loadGameStatus(); // Aggiorna display
+        } else {
+            showNotification(data.error || 'Errore terminazione partita', 'error');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        showNotification('Errore di connessione', 'error');
+    });
+}
+
+// Funzione per riavviare la partita
+function restartLupusGame() {
+    showConfirmModal(
+        '🔄 Riavviare Lupus?',
+        'Vuoi riavviare una nuova partita con la stessa configurazione e gli stessi giocatori?',
+        () => executeRestartGame()
+    );
+}
+
+function executeRestartGame() {
+    showLoading('Riavvio partita...');
+
+    fetch('/api/gamemaster/lupus-restart', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            same_players: true,
+            same_config: true
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            showNotification('🐺 Nuova partita avviata!');
+            loadGameStatus();
+        } else {
+            showNotification(data.error || 'Errore riavvio partita', 'error');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        showNotification('Errore di connessione', 'error');
+    });
+}
+
+// Modal per mostrare i risultati della partita
+function showGameEndModal(gameData) {
+    const modal = document.createElement('div');
+    modal.className = 'game-end-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+    `;
+
+    const winnerEmoji = {
+        'lupi': '🐺',
+        'cittadini': '👥',
+        'pareggio': '⚖️'
+    };
+
+    const winnerColor = {
+        'lupi': '#e74c3c',
+        'cittadini': '#3498db',
+        'pareggio': '#f39c12'
+    };
+
+    const winner = gameData.winner_team || 'pareggio';
+
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 20px; padding: 30px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <div style="font-size: 4em; margin-bottom: 10px;">${winnerEmoji[winner]}</div>
+                <h2 style="color: ${winnerColor[winner]}; margin: 0;">
+                    ${winner === 'pareggio' ? 'Partita Terminata' : `Vittoria ${winner.charAt(0).toUpperCase() + winner.slice(1)}!`}
+                </h2>
+                <p style="color: #666; margin: 10px 0;">${gameData.message}</p>
+            </div>
+
+            ${gameData.punteggi && gameData.punteggi.length > 0 ? `
+                <div style="margin-bottom: 30px;">
+                    <h3 style="color: #333; margin-bottom: 20px; text-align: center;">🏆 Punteggi Assegnati</h3>
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        ${gameData.punteggi.map(p => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; margin-bottom: 10px; background: ${p.team === winner ? '#e8f5e8' : '#f8f9fa'}; border-radius: 10px; border-left: 4px solid ${getTeamColor(p.team)};">
+                                <div>
+                                    <div style="font-weight: bold; color: #333;">${p.nome}</div>
+                                    <div style="font-size: 0.9em; color: #666;">${p.ruolo} (${p.team})</div>
+                                    ${p.dettaglio ? `<div style="font-size: 0.8em; color: #888; margin-top: 5px;">${p.dettaglio.join(', ')}</div>` : ''}
+                                </div>
+                                <div style="font-size: 1.5em; font-weight: bold; color: ${getTeamColor(p.team)};">
+                                    +${p.punti}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : ''}
+
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button onclick="restartLupusGame(); closeGameEndModal();" style="background: #27ae60; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+                    🔄 Nuova Partita
+                </button>
+                <button onclick="closeGameEndModal();" style="background: #95a5a6; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+                    ✅ Chiudi
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Chiudi cliccando fuori
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeGameEndModal();
+        }
+    });
+}
+
+function closeGameEndModal() {
+    const modal = document.querySelector('.game-end-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Funzione per mostrare controlli di fine partita avanzati
+function showAdvancedEndControls() {
+    const modal = document.createElement('div');
+    modal.className = 'advanced-end-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+    `;
+
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 20px; padding: 30px; max-width: 500px; width: 90%;">
+            <h3 style="color: #333; margin-bottom: 20px; text-align: center;">🎮 Opzioni Fine Partita</h3>
+
+            <div style="margin-bottom: 20px;">
+                <p style="color: #666; text-align: center; margin-bottom: 20px;">
+                    Scegli come terminare la partita:
+                </p>
+
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <button onclick="executeEndGame(false); closeAdvancedEndModal();"
+                            style="background: #3498db; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+                        🏁 Fine Naturale
+                        <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">
+                            Termina seguendo le regole (controlla vincitore automaticamente)
+                        </div>
+                    </button>
+
+                    <button onclick="forceEndLupusGame('lupi'); closeAdvancedEndModal();"
+                            style="background: #e74c3c; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+                        🐺 Vittoria Lupi
+                        <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">
+                            Dichiara vincitori i lupi
+                        </div>
+                    </button>
+
+                    <button onclick="forceEndLupusGame('cittadini'); closeAdvancedEndModal();"
+                            style="background: #3498db; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+                        👥 Vittoria Cittadini
+                        <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">
+                            Dichiara vincitori i cittadini
+                        </div>
+                    </button>
+
+                    <button onclick="forceEndLupusGame('pareggio'); closeAdvancedEndModal();"
+                            style="background: #f39c12; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+                        ⚖️ Pareggio
+                        <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">
+                            Termina senza vincitori (punti minimi)
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <div style="text-align: center;">
+                <button onclick="closeAdvancedEndModal();"
+                        style="background: #95a5a6; color: white; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer;">
+                    Annulla
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+}
+
+function closeAdvancedEndModal() {
+    const modal = document.querySelector('.advanced-end-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Aggiorna i controlli di fase per includere opzioni avanzate
+function updatePhaseControls(gameData) {
+    const phaseControlsSection = document.getElementById('phase-controls-section');
+
+    if (!gameData.game_active) {
+        phaseControlsSection.style.display = 'none';
+        return;
+    }
+
+    phaseControlsSection.style.display = 'block';
+
+    // Aggiungi pulsante per controlli avanzati se non esiste
+    if (!document.getElementById('advanced-end-btn')) {
+        const advancedBtn = document.createElement('button');
+        advancedBtn.id = 'advanced-end-btn';
+        advancedBtn.className = 'btn';
+        advancedBtn.style.cssText = 'background: #9b59b6; color: white; margin-top: 10px; width: 100%;';
+        advancedBtn.innerHTML = '⚙️ Opzioni Avanzate';
+        advancedBtn.onclick = showAdvancedEndControls;
+
+        // Inserisci prima del pulsante termina partita esistente
+        const terminaBtn = phaseControlsSection.querySelector('button[onclick*="endLupusGame"]');
+        if (terminaBtn) {
+            terminaBtn.parentNode.insertBefore(advancedBtn, terminaBtn);
+        }
+    }
+}
+
+// Funzione per ottenere il colore del team
+function getTeamColor(team) {
+    const colors = {
+        'lupi': '#e74c3c',
+        'cittadini': '#3498db',
+        'neutral': '#f39c12'
+    };
+    return colors[team] || '#95a5a6';
+}
+
+// Modifica la funzione di aggiornamento display esistente
+function updateGameDisplay(data) {
+    // ... codice esistente ...
+
+    // Aggiungi controlli avanzati
+    updatePhaseControls(data);
+
+    // Se la partita è terminata, mostra pulsante per riavviare
+    if (data.game_active && data.fase_corrente === 'ended') {
+        showRestartButton();
+    }
+}
+
+function showRestartButton() {
+    const setupSection = document.getElementById('setup-section');
+    if (setupSection && !document.getElementById('restart-section')) {
+        const restartSection = document.createElement('div');
+        restartSection.id = 'restart-section';
+        restartSection.className = 'controls-section';
+        restartSection.innerHTML = `
+            <h3>🔄 Partita Terminata</h3>
+            <button class="btn btn-success" onclick="restartLupusGame()" style="width: 100%; margin-bottom: 10px;">
+                🚀 Riavvia Lupus
+            </button>
+            <button class="btn btn-secondary" onclick="location.reload()" style="width: 100%;">
+                🏠 Torna al Menu
+            </button>
+        `;
+        setupSection.parentNode.insertBefore(restartSection, setupSection);
+        setupSection.style.display = 'none';
+    }
+}
+
+// Funzione per mostrare statistiche dettagliate della partita
+function showGameSummary(partitaId) {
+    fetch(`/api/gamemaster/lupus-game-summary/${partitaId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                showNotification(data.error, 'error');
+                return;
+            }
+
+            const modal = document.createElement('div');
+            modal.className = 'game-summary-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 20px; padding: 30px; max-width: 800px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                    <h2 style="color: #333; margin-bottom: 20px; text-align: center;">📊 Riassunto Partita #${data.partita.id}</h2>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 1.5em; font-weight: bold; color: #333;">${data.partita.vincitore || 'Pareggio'}</div>
+                            <div style="color: #666;">Vincitore</div>
+                        </div>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 1.5em; font-weight: bold; color: #333;">${data.partita.turni_totali}</div>
+                            <div style="color: #666;">Turni</div>
+                        </div>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 1.5em; font-weight: bold; color: #333;">${data.partita.durata_minuti}m</div>
+                            <div style="color: #666;">Durata</div>
+                        </div>
+                    </div>
+
+                    <h3 style="color: #333; margin-bottom: 15px;">👥 Giocatori</h3>
+                    <div style="margin-bottom: 30px; max-height: 300px; overflow-y: auto;">
+                        ${data.giocatori.map(g => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 5px; background: ${g.era_bot ? '#fff3cd' : '#f8f9fa'}; border-radius: 8px; border-left: 4px solid ${getTeamColor(g.team)};">
+                                <div>
+                                    <span style="font-weight: bold;">${g.era_bot ? '🤖 ' : ''}${g.nome}</span>
+                                    <span style="color: #666; margin-left: 10px;">${g.ruolo}</span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-weight: bold; color: ${g.punti_ottenuti > 0 ? '#27ae60' : '#95a5a6'};">
+                                        ${g.punti_ottenuti > 0 ? '+' : ''}${g.punti_ottenuti} pt
+                                    </div>
+                                    <div style="font-size: 0.8em; color: #666;">
+                                        ${g.stato_finale}${g.morte_turno ? ` (T${g.morte_turno})` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div style="text-align: center;">
+                        <button onclick="this.parentElement.parentElement.parentElement.remove();"
+                                style="background: #3498db; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+                            ✅ Chiudi
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+        })
+        .catch(error => {
+            showNotification('Errore caricamento riassunto', 'error');
+        });
+}
+
+// Aggiungi event listener per aggiornamenti automatici
+document.addEventListener('DOMContentLoaded', function() {
+    // Aggiorna ogni 5 secondi se siamo nella pagina gamemaster
+    if (window.location.pathname.includes('gamemaster') || window.location.pathname.includes('lupus')) {
+        setInterval(() => {
+            if (document.querySelector('#lupus-tab, .lupus-controls')) {
+                loadGameStatus();
+            }
+        }, 5000);
+    }
+});
+    </script>
+</body>
+</html>
