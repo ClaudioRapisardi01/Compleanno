@@ -898,6 +898,8 @@ def indovina_chi():
     return render_template('indovina_chi.html')
 
 
+
+
 # Votazione Costumi
 @app.route('/votazione-costumi')
 def votazione_costumi():
