@@ -1005,7 +1005,29 @@
         </div>
 
         <!-- Info speciale Lupus (mostrata solo quando Lupus è attivo) -->
-
+        <div class="lupus-info" id="lupus-info" style="display: none;">
+            <div class="lupus-role">
+                <span class="lupus-role-icon" id="lupus-role-icon">🎭</span>
+                <div>
+                    <strong id="lupus-role-name">Il tuo ruolo</strong>
+                    <div id="lupus-role-team" style="font-size: 0.9em; opacity: 0.8;"></div>
+                </div>
+            </div>
+            <div class="lupus-phase-info">
+                <div class="lupus-stat">
+                    <div class="lupus-stat-value" id="lupus-phase">Notte</div>
+                    <div class="lupus-stat-label">Fase Attuale</div>
+                </div>
+                <div class="lupus-stat">
+                    <div class="lupus-stat-value" id="lupus-turn">1</div>
+                    <div class="lupus-stat-label">Turno</div>
+                </div>
+                <div class="lupus-stat">
+                    <div class="lupus-stat-value" id="lupus-time">5:00</div>
+                    <div class="lupus-stat-label">Tempo Rimasto</div>
+                </div>
+            </div>
+        </div>
 
         <!-- Sezione giochi -->
         <div class="games-section">
@@ -1025,7 +1047,12 @@
                     <button class="game-btn disabled" id="indovina-btn">In attesa...</button>
                 </div>
 
-
+                <div class="game-card disabled lupus-card" id="lupus-card">
+                    <span class="game-icon">🐺</span>
+                    <h3>Lupus in Fabula</h3>
+                    <p>Chi sono i lupi tra voi? Scoprite la verità prima che sia troppo tardi!</p>
+                    <button class="game-btn disabled lupus-btn" id="lupus-btn">In attesa...</button>
+                </div>
 
                 <div class="game-card disabled" id="votazione-card">
                     <span class="game-icon">🎭</span>
