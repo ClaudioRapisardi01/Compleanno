@@ -1762,5 +1762,419 @@ def votazione_costumi():
     return render_template('votazione_costumi.html')
 
 
+# Aggiungi queste route al tuo app.py, prima della riga "if __name__ == '__main__':"
+
+# ==================== API VOTAZIONE COSTUMI ====================
+
+# API per controllare lo stato della votazione per il giocatore corrente
+@app.route('/api/votazione-costumi/status')
+def votazione_costumi_status():
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Controlla se il giocatore ha già votato
+        cursor.execute("""
+            SELECT COUNT(*) FROM votazione_costumi 
+            WHERE votante_id = %s
+        """, (session['player_id'],))
+
+        vote_count = cursor.fetchone()[0]
+        has_voted = vote_count > 0
+
+        return jsonify({
+            'player_id': session['player_id'],
+            'has_voted': has_voted,
+            'votes_count': vote_count
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per ottenere tutti i partecipanti (escluso il votante)
+@app.route('/api/votazione-costumi/contestants')
+def get_votazione_contestants():
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Ottieni tutti i giocatori con le loro info
+        cursor.execute("""
+            SELECT g.id, g.nome, g.squadra, g.foto_profilo, p.nome as personaggio
+            FROM giocatori g
+            JOIN personaggi p ON g.personaggio_id = p.id
+            WHERE g.escluso_da_gioco = FALSE
+            ORDER BY g.nome ASC
+        """)
+
+        contestants = []
+        for row in cursor.fetchall():
+            contestants.append({
+                'id': row[0],
+                'nome': row[1],
+                'squadra': row[2],
+                'foto_profilo': row[3],
+                'personaggio': row[4]
+            })
+
+        return jsonify(contestants)
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per inviare i voti
+@app.route('/api/votazione-costumi/submit', methods=['POST'])
+def submit_votazione_costumi():
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    first_place = data.get('first_place')
+    second_place = data.get('second_place')
+    third_place = data.get('third_place')
+
+    # Validazione
+    if not all([first_place, second_place, third_place]):
+        return jsonify({'error': 'Devi selezionare tutti e 3 i posti'}), 400
+
+    # Controlla che non ci siano duplicati
+    votes_list = [first_place, second_place, third_place]
+    if len(set(votes_list)) != 3:
+        return jsonify({'error': 'Non puoi votare lo stesso costume per più posizioni'}), 400
+
+    # Controlla che non stia votando se stesso
+    if session['player_id'] in votes_list:
+        return jsonify({'error': 'Non puoi votare il tuo costume'}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Controlla se ha già votato
+        cursor.execute("""
+            SELECT COUNT(*) FROM votazione_costumi 
+            WHERE votante_id = %s
+        """, (session['player_id'],))
+
+        if cursor.fetchone()[0] > 0:
+            return jsonify({'error': 'Hai già votato'}), 400
+
+        # Verifica che tutti i giocatori votati esistano e non siano esclusi
+        for player_id in votes_list:
+            cursor.execute("""
+                SELECT COUNT(*) FROM giocatori 
+                WHERE id = %s AND escluso_da_gioco = FALSE
+            """, (player_id,))
+
+            if cursor.fetchone()[0] == 0:
+                return jsonify({'error': 'Uno dei giocatori selezionati non è valido'}), 400
+
+        # Inserisci i voti nel database
+        votes_data = [
+            (session['player_id'], first_place, 'primo_posto'),
+            (session['player_id'], second_place, 'secondo_posto'),
+            (session['player_id'], third_place, 'terzo_posto')
+        ]
+
+        cursor.executemany("""
+            INSERT INTO votazione_costumi (votante_id, votato_id, categoria)
+            VALUES (%s, %s, %s)
+        """, votes_data)
+
+        # Aggiorna i punti dei giocatori votati
+        # 1° posto: 5 punti, 2° posto: 3 punti, 3° posto: 1 punto
+        points_updates = [
+            (5, first_place),
+            (3, second_place),
+            (1, third_place)
+        ]
+
+        for points, player_id in points_updates:
+            cursor.execute("""
+                UPDATE giocatori 
+                SET punti_totali = punti_totali + %s 
+                WHERE id = %s
+            """, (points, player_id))
+
+        # Registra le partecipazioni
+        for points, player_id in points_updates:
+            cursor.execute("""
+                INSERT INTO partecipazioni (giocatore_id, gioco, punti)
+                VALUES (%s, 'votazione_costumi', %s)
+            """, (player_id, points))
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Voti registrati con successo!'
+        })
+
+    except mysql.connector.Error as err:
+        conn.rollback()
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per ottenere i risultati della votazione
+@app.route('/api/votazione-costumi/results')
+def get_votazione_results():
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Ottieni i risultati aggregati
+        cursor.execute("""
+            SELECT 
+                g.id,
+                g.nome,
+                g.squadra,
+                g.foto_profilo,
+                p.nome as personaggio,
+                SUM(CASE WHEN vc.categoria = 'primo_posto' THEN 1 ELSE 0 END) as first_votes,
+                SUM(CASE WHEN vc.categoria = 'secondo_posto' THEN 1 ELSE 0 END) as second_votes,
+                SUM(CASE WHEN vc.categoria = 'terzo_posto' THEN 1 ELSE 0 END) as third_votes,
+                SUM(CASE 
+                    WHEN vc.categoria = 'primo_posto' THEN 5 
+                    WHEN vc.categoria = 'secondo_posto' THEN 3 
+                    WHEN vc.categoria = 'terzo_posto' THEN 1 
+                    ELSE 0 
+                END) as total_points
+            FROM giocatori g
+            JOIN personaggi p ON g.personaggio_id = p.id
+            LEFT JOIN votazione_costumi vc ON g.id = vc.votato_id
+            WHERE g.escluso_da_gioco = FALSE
+            GROUP BY g.id, g.nome, g.squadra, g.foto_profilo, p.nome
+            ORDER BY total_points DESC, first_votes DESC, second_votes DESC, third_votes DESC, g.nome ASC
+        """)
+
+        results = []
+        for row in cursor.fetchall():
+            results.append({
+                'id': row[0],
+                'nome': row[1],
+                'squadra': row[2],
+                'foto_profilo': row[3],
+                'personaggio': row[4],
+                'first_votes': row[5] or 0,
+                'second_votes': row[6] or 0,
+                'third_votes': row[7] or 0,
+                'total_points': row[8] or 0
+            })
+
+        # Conta statistiche generali
+        cursor.execute("""
+            SELECT COUNT(DISTINCT votante_id) as total_voters,
+                   COUNT(*) as total_votes
+            FROM votazione_costumi
+        """)
+
+        stats = cursor.fetchone()
+        total_voters = stats[0] if stats else 0
+        total_votes = stats[1] if stats else 0
+
+        return jsonify({
+            'results': results,
+            'total_voters': total_voters,
+            'total_votes': total_votes
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API Gamemaster per gestire la votazione costumi
+@app.route('/api/gamemaster/votazione-costumi/reset', methods=['POST'])
+def reset_votazione_costumi():
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Cancella tutti i voti
+        cursor.execute("DELETE FROM votazione_costumi")
+
+        # Opzionalmente, togli i punti ottenuti dalla votazione costumi
+        # (questo è complicato da calcolare retroattivamente, quindi meglio
+        # utilizzare il reset generale dei punteggi se necessario)
+
+        conn.commit()
+        return jsonify({'success': True, 'message': 'Votazione costumi resettata'})
+
+    except mysql.connector.Error as err:
+        conn.rollback()
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API Gamemaster per ottenere statistiche dettagliate della votazione
+@app.route('/api/gamemaster/votazione-costumi/stats')
+def get_votazione_stats():
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Statistiche generali
+        cursor.execute("""
+            SELECT 
+                COUNT(DISTINCT votante_id) as total_voters,
+                COUNT(*) as total_votes,
+                COUNT(DISTINCT votato_id) as voted_contestants
+            FROM votazione_costumi
+        """)
+        general_stats = cursor.fetchone()
+
+        # Chi ha votato
+        cursor.execute("""
+            SELECT DISTINCT g.nome, g.squadra
+            FROM votazione_costumi vc
+            JOIN giocatori g ON vc.votante_id = g.id
+            ORDER BY g.nome
+        """)
+        voters = [{'nome': row[0], 'squadra': row[1]} for row in cursor.fetchall()]
+
+        # Chi non ha ancora votato
+        cursor.execute("""
+            SELECT g.nome, g.squadra
+            FROM giocatori g
+            WHERE g.escluso_da_gioco = FALSE
+            AND g.id NOT IN (SELECT DISTINCT votante_id FROM votazione_costumi)
+            ORDER BY g.nome
+        """)
+        non_voters = [{'nome': row[0], 'squadra': row[1]} for row in cursor.fetchall()]
+
+        # Dettaglio voti per categoria
+        cursor.execute("""
+            SELECT 
+                categoria,
+                COUNT(*) as count
+            FROM votazione_costumi
+            GROUP BY categoria
+            ORDER BY count DESC
+        """)
+        votes_by_category = [{'categoria': row[0], 'count': row[1]} for row in cursor.fetchall()]
+
+        # Top votati per ogni categoria
+        cursor.execute("""
+            SELECT 
+                vc.categoria,
+                g.nome,
+                COUNT(*) as votes
+            FROM votazione_costumi vc
+            JOIN giocatori g ON vc.votato_id = g.id
+            GROUP BY vc.categoria, g.id, g.nome
+            ORDER BY vc.categoria, votes DESC
+        """)
+
+        top_by_category = {}
+        for row in cursor.fetchall():
+            categoria = row[0]
+            if categoria not in top_by_category:
+                top_by_category[categoria] = []
+            top_by_category[categoria].append({
+                'nome': row[1],
+                'votes': row[2]
+            })
+
+        return jsonify({
+            'general_stats': {
+                'total_voters': general_stats[0] or 0,
+                'total_votes': general_stats[1] or 0,
+                'voted_contestants': general_stats[2] or 0
+            },
+            'voters': voters,
+            'non_voters': non_voters,
+            'votes_by_category': votes_by_category,
+            'top_by_category': top_by_category
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per ottenere i voti di un singolo utente (per debug o visualizzazione)
+@app.route('/api/votazione-costumi/my-votes')
+def get_my_votes():
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT 
+                vc.categoria,
+                g.nome,
+                g.squadra,
+                p.nome as personaggio,
+                vc.timestamp
+            FROM votazione_costumi vc
+            JOIN giocatori g ON vc.votato_id = g.id
+            JOIN personaggi p ON g.personaggio_id = p.id
+            WHERE vc.votante_id = %s
+            ORDER BY 
+                CASE vc.categoria 
+                    WHEN 'primo_posto' THEN 1 
+                    WHEN 'secondo_posto' THEN 2 
+                    WHEN 'terzo_posto' THEN 3 
+                    ELSE 4 
+                END
+        """, (session['player_id'],))
+
+        votes = []
+        for row in cursor.fetchall():
+            votes.append({
+                'categoria': row[0],
+                'nome': row[1],
+                'squadra': row[2],
+                'personaggio': row[3],
+                'timestamp': row[4].isoformat() if row[4] else None
+            })
+
+        return jsonify({
+            'has_voted': len(votes) > 0,
+            'votes': votes
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

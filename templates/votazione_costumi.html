@@ -1,10 +1,1260 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏆 Votazione Costumi</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+            min-height: 100vh;
+            color: white;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ffd700, #ffed4a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .loading-screen {
+            text-align: center;
+            padding: 50px;
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-top: 5px solid #ffd700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            color: #fff;
+            display: none;
+        }
+
+        .voting-instructions {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .voting-instructions h3 {
+            color: #ffd700;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .voting-instructions ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .voting-instructions li {
+            padding: 8px 0;
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .voting-instructions li::before {
+            content: '✨';
+            position: absolute;
+            left: 0;
+            top: 8px;
+        }
+
+        .voting-status {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .voting-status.completed {
+            background: rgba(39, 174, 96, 0.2);
+            border-color: #27ae60;
+        }
+
+        .selection-summary {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: none;
+        }
+
+        .selection-summary h3 {
+            color: #ffd700;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .selection-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .rank-badge {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            font-size: 1.2em;
+        }
+
+        .rank-1 { background: linear-gradient(45deg, #ffd700, #ffed4a); color: #333; }
+        .rank-2 { background: linear-gradient(45deg, #c0c0c0, #e8e8e8); color: #333; }
+        .rank-3 { background: linear-gradient(45deg, #cd7f32, #daa520); color: white; }
+
+        .contestants-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .contestant-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 3px solid transparent;
+            transition: all 0.4s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .contestant-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.6s;
+        }
+
+        .contestant-card:hover::before {
+            left: 100%;
+        }
+
+        .contestant-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+        }
+
+        .contestant-card.selected-1 {
+            border-color: #ffd700;
+            background: rgba(255, 215, 0, 0.2);
+            transform: translateY(-5px) scale(1.02);
+        }
+
+        .contestant-card.selected-2 {
+            border-color: #c0c0c0;
+            background: rgba(192, 192, 192, 0.2);
+            transform: translateY(-5px) scale(1.02);
+        }
+
+        .contestant-card.selected-3 {
+            border-color: #cd7f32;
+            background: rgba(205, 127, 50, 0.2);
+            transform: translateY(-5px) scale(1.02);
+        }
+
+        .contestant-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(50%);
+        }
+
+        .contestant-card.current-user {
+            opacity: 0.4;
+            cursor: not-allowed;
+            filter: grayscale(100%);
+            position: relative;
+        }
+
+        .contestant-card.current-user::after {
+            content: '🚫 Non puoi votare te stesso';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 0.9em;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .contestant-photo {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5em;
+            overflow: hidden;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .contestant-card:hover .contestant-photo {
+            transform: scale(1.1);
+        }
+
+        .contestant-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .contestant-info h3 {
+            color: #ffd700;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+
+        .contestant-team {
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+
+        .contestant-character {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 10px;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+
+        .rank-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .rank-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .rank-btn:hover {
+            transform: scale(1.1);
+            border-color: white;
+        }
+
+        .rank-btn.selected {
+            transform: scale(1.1);
+        }
+
+        .rank-btn.rank-1.selected {
+            background: linear-gradient(45deg, #ffd700, #ffed4a);
+            border-color: #ffd700;
+            color: #333;
+        }
+
+        .rank-btn.rank-2.selected {
+            background: linear-gradient(45deg, #c0c0c0, #e8e8e8);
+            border-color: #c0c0c0;
+            color: #333;
+        }
+
+        .rank-btn.rank-3.selected {
+            background: linear-gradient(45deg, #cd7f32, #daa520);
+            border-color: #cd7f32;
+            color: white;
+        }
+
+        .rank-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .submit-section {
+            text-align: center;
+            margin-top: 40px;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+            color: white;
+            border: none;
+            padding: 18px 35px;
+            border-radius: 50px;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.5s ease;
+        }
+
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 30px rgba(39, 174, 96, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            background: #666;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #95a5a6, #7f8c8d);
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 15px 30px rgba(149, 165, 166, 0.4);
+        }
+
+        .btn-warning {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+        }
+
+        .btn-warning:hover {
+            box-shadow: 0 15px 30px rgba(243, 156, 18, 0.4);
+        }
+
+        .results-section {
+            display: none;
+            margin-top: 40px;
+        }
+
+        .results-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .results-header h2 {
+            color: #ffd700;
+            font-size: 2.5em;
+            margin-bottom: 15px;
+        }
+
+        .winners-podium {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .winner-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 3px solid;
+            position: relative;
+        }
+
+        .winner-card.first {
+            border-color: #ffd700;
+            background: rgba(255, 215, 0, 0.2);
+        }
+
+        .winner-card.second {
+            border-color: #c0c0c0;
+            background: rgba(192, 192, 192, 0.2);
+        }
+
+        .winner-card.third {
+            border-color: #cd7f32;
+            background: rgba(205, 127, 50, 0.2);
+        }
+
+        .winner-crown {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .winner-name {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .winner-votes {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+
+        .all-results {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            margin-top: 30px;
+        }
+
+        .all-results h3 {
+            color: #ffd700;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.8em;
+        }
+
+        .result-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .result-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(5px);
+        }
+
+        .result-position {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-right: 20px;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .result-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin-right: 20px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            overflow: hidden;
+        }
+
+        .result-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .result-info {
+            flex: 1;
+        }
+
+        .result-name {
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-bottom: 5px;
+        }
+
+        .result-details {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .result-score {
+            text-align: right;
+        }
+
+        .result-points {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .result-breakdown {
+            font-size: 0.8em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(39, 174, 96, 0.9);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-weight: bold;
+            z-index: 1000;
+            display: none;
+        }
+
+        .notification.error {
+            background: rgba(231, 76, 60, 0.9);
+        }
+
+        .notification.warning {
+            background: rgba(243, 156, 18, 0.9);
+        }
+
+        .notification.info {
+            background: rgba(52, 152, 219, 0.9);
+        }
+
+        @media (max-width: 768px) {
+            .contestants-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .winners-podium {
+                grid-template-columns: 1fr;
+            }
+
+            .contestant-card {
+                padding: 20px;
+            }
+
+            .contestant-photo {
+                width: 100px;
+                height: 100px;
+                font-size: 2em;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .result-item {
+                flex-direction: column;
+                text-align: center;
+                gap: 15px;
+            }
+
+            .result-position {
+                margin-right: 0;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+            }
+
+            .voting-instructions, .voting-status {
+                padding: 15px;
+            }
+
+            .contestant-card {
+                padding: 15px;
+            }
+
+            .all-results {
+                padding: 20px;
+            }
+        }
+    </style>
 </head>
 <body>
+    <div class="container">
+        <div class="header">
+            <h1>🏆 Votazione Costumi</h1>
+            <p>Vota i migliori 3 costumi della festa!</p>
+        </div>
 
+        <!-- Loading Screen -->
+        <div class="loading-screen" id="loading-screen">
+            <div class="loading-spinner"></div>
+            <h3>Caricamento partecipanti...</h3>
+        </div>
+
+        <!-- Error Screen -->
+        <div class="error-message" id="error-screen">
+            <h3>⚠️ Errore</h3>
+            <p id="error-message-text">Si è verificato un errore.</p>
+            <button class="btn" onclick="location.reload()">🔄 Riprova</button>
+        </div>
+
+        <!-- Voting Screen -->
+        <div id="voting-screen" style="display: none;">
+            <!-- Instructions -->
+            <div class="voting-instructions">
+                <h3>📋 Come Votare</h3>
+                <ul>
+                    <li>Seleziona i tuoi <strong>3 costumi preferiti</strong> in ordine di gradimento</li>
+                    <li><strong>1° posto:</strong> 20 punti - <strong>2° posto:</strong> 10 punti - <strong>3° posto:</strong> 5 punti</li>
+                    <li>Non puoi votare il tuo costume</li>
+                    <li>Clicca sui numeri (1, 2, 3) sotto ogni costume per assegnare la posizione</li>
+                    <li>Puoi cambiare idea prima di inviare il voto finale</li>
+                </ul>
+            </div>
+
+            <!-- Voting Status -->
+            <div class="voting-status" id="voting-status">
+                <h3>🗳️ Seleziona i tuoi 3 costumi preferiti</h3>
+                <p>Hai selezionato <span id="selected-count">0</span>/3 costumi</p>
+            </div>
+
+            <!-- Selection Summary -->
+            <div class="selection-summary" id="selection-summary">
+                <h3>📝 La Tua Selezione</h3>
+                <div id="selection-list">
+                    <!-- Selezioni verranno mostrate qui -->
+                </div>
+            </div>
+
+            <!-- Contestants Grid -->
+            <div class="contestants-grid" id="contestants-grid">
+                <!-- I partecipanti verranno caricati qui -->
+            </div>
+
+            <!-- Submit Section -->
+            <div class="submit-section">
+                <button class="btn" id="submit-votes-btn" onclick="submitVotes()" disabled>
+                    🗳️ Invia Voti
+                </button>
+                <button class="btn btn-warning" onclick="clearVotes()">
+                    🔄 Cancella Selezioni
+                </button>
+                <button class="btn btn-secondary" onclick="goBack()">
+                    ⬅️ Torna alla Dashboard
+                </button>
+            </div>
+        </div>
+
+        <!-- Results Screen -->
+        <div class="results-section" id="results-screen">
+            <div class="results-header">
+                <h2>🏆 Risultati Votazione</h2>
+                <p id="results-subtitle">Ecco i vincitori della votazione costumi!</p>
+            </div>
+
+            <!-- Winners Podium -->
+            <div class="winners-podium" id="winners-podium">
+                <!-- I vincitori verranno mostrati qui -->
+            </div>
+
+            <!-- All Results -->
+            <div class="all-results">
+                <h3>📊 Classifica Completa</h3>
+                <div id="all-results-list">
+                    <!-- Tutti i risultati verranno mostrati qui -->
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="submit-section">
+                <button class="btn btn-secondary" onclick="goBack()">
+                    🏠 Torna alla Dashboard
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+
+    <script>
+        let contestants = [];
+        let currentPlayerId = null;
+        let selectedVotes = {
+            first: null,
+            second: null,
+            third: null
+        };
+        let hasVoted = false;
+
+        // Inizializzazione
+        document.addEventListener('DOMContentLoaded', function() {
+            checkVotingStatus();
+        });
+
+        // Controlla lo stato della votazione
+        function checkVotingStatus() {
+            showLoading();
+
+            fetch('/api/votazione-costumi/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showError('Errore di autenticazione. Reindirizzamento...');
+                        setTimeout(() => window.location.href = '/', 2000);
+                        return;
+                    }
+
+                    currentPlayerId = data.player_id;
+
+                    if (data.has_voted) {
+                        // Mostra risultati se ha già votato
+                        hasVoted = true;
+                        loadResults();
+                    } else {
+                        // Carica interfaccia di voto
+                        loadContestants();
+                    }
+                })
+                .catch(error => {
+                    console.error('Errore controllo stato:', error);
+                    showError('Errore di connessione. Riprova più tardi.');
+                });
+        }
+
+        // Carica i partecipanti
+        function loadContestants() {
+            fetch('/api/votazione-costumi/contestants')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showError(data.error);
+                        return;
+                    }
+
+                    contestants = data;
+                    displayContestants();
+                    hideLoading();
+                    document.getElementById('voting-screen').style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Errore caricamento partecipanti:', error);
+                    showError('Errore caricamento partecipanti.');
+                });
+        }
+
+        // Mostra i partecipanti
+        function displayContestants() {
+            const grid = document.getElementById('contestants-grid');
+            grid.innerHTML = '';
+
+            contestants.forEach(contestant => {
+                const isCurrentUser = contestant.id === currentPlayerId;
+
+                const card = document.createElement('div');
+                card.className = `contestant-card ${isCurrentUser ? 'current-user' : ''}`;
+                card.id = `contestant-${contestant.id}`;
+
+                if (!isCurrentUser) {
+                    card.onclick = () => showRankSelector(contestant.id);
+                }
+
+                const photoHtml = contestant.foto_profilo ?
+                    `<img src="/static/uploads/${contestant.foto_profilo}" alt="${contestant.nome}">` :
+                    '👤';
+
+                card.innerHTML = `
+                    <div class="contestant-photo">${photoHtml}</div>
+                    <div class="contestant-info">
+                        <h3>${contestant.nome}</h3>
+                        <div class="contestant-team">Squadra ${contestant.squadra}</div>
+                        <div class="contestant-character">${contestant.personaggio}</div>
+                        ${!isCurrentUser ? `
+                            <div class="rank-selector" id="rank-selector-${contestant.id}" style="display: none;">
+                                <button class="rank-btn rank-1" onclick="selectRank(${contestant.id}, 'first', event)">1°</button>
+                                <button class="rank-btn rank-2" onclick="selectRank(${contestant.id}, 'second', event)">2°</button>
+                                <button class="rank-btn rank-3" onclick="selectRank(${contestant.id}, 'third', event)">3°</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        // Mostra i selettori di posizione
+        function showRankSelector(contestantId) {
+            if (contestantId === currentPlayerId) return;
+
+            // Nascondi tutti i selettori
+            document.querySelectorAll('.rank-selector').forEach(selector => {
+                selector.style.display = 'none';
+            });
+
+            // Mostra il selettore per questo partecipante
+            const selector = document.getElementById(`rank-selector-${contestantId}`);
+            if (selector) {
+                selector.style.display = 'flex';
+                updateRankButtons(contestantId);
+            }
+        }
+
+        // Aggiorna i bottoni di posizione
+        function updateRankButtons(contestantId) {
+            const selector = document.getElementById(`rank-selector-${contestantId}`);
+            if (!selector) return;
+
+            const buttons = selector.querySelectorAll('.rank-btn');
+
+            buttons.forEach(btn => {
+                btn.classList.remove('selected');
+                btn.disabled = false;
+            });
+
+            // Evidenzia selezione attuale
+            Object.entries(selectedVotes).forEach(([rank, selectedId]) => {
+                if (selectedId === contestantId) {
+                    const rankMap = { first: 'rank-1', second: 'rank-2', third: 'rank-3' };
+                    const button = selector.querySelector(`.${rankMap[rank]}`);
+                    if (button) {
+                        button.classList.add('selected');
+                    }
+                }
+            });
+
+            // Disabilita posizioni già occupate da altri
+            Object.entries(selectedVotes).forEach(([rank, selectedId]) => {
+                if (selectedId && selectedId !== contestantId) {
+                    const rankMap = { first: 'rank-1', second: 'rank-2', third: 'rank-3' };
+                    const button = selector.querySelector(`.${rankMap[rank]}`);
+                    if (button) {
+                        button.disabled = true;
+                    }
+                }
+            });
+        }
+
+        // Seleziona una posizione
+        function selectRank(contestantId, rank, event) {
+            event.stopPropagation();
+
+            if (contestantId === currentPlayerId) return;
+
+            // Rimuovi selezione precedente per questa posizione
+            if (selectedVotes[rank]) {
+                const prevCard = document.getElementById(`contestant-${selectedVotes[rank]}`);
+                if (prevCard) {
+                    prevCard.classList.remove(`selected-1`, `selected-2`, `selected-3`);
+                }
+            }
+
+            // Rimuovi selezione precedente per questo partecipante
+            Object.entries(selectedVotes).forEach(([prevRank, selectedId]) => {
+                if (selectedId === contestantId) {
+                    selectedVotes[prevRank] = null;
+                }
+            });
+
+            // Imposta nuova selezione
+            selectedVotes[rank] = contestantId;
+
+            // Aggiorna visualizzazione
+            updateContestantCards();
+            updateSelectionSummary();
+            updateVotingStatus();
+
+            // Nascondi selettore
+            document.getElementById(`rank-selector-${contestantId}`).style.display = 'none';
+
+            showNotification(`${getContestantName(contestantId)} selezionato per il ${getRankName(rank)}!`, 'success');
+        }
+
+        // Aggiorna le carte dei partecipanti
+        function updateContestantCards() {
+            contestants.forEach(contestant => {
+                const card = document.getElementById(`contestant-${contestant.id}`);
+                if (!card) return;
+
+                // Rimuovi tutte le classi di selezione
+                card.classList.remove('selected-1', 'selected-2', 'selected-3');
+
+                // Aggiungi classe appropriata se selezionato
+                Object.entries(selectedVotes).forEach(([rank, selectedId]) => {
+                    if (selectedId === contestant.id) {
+                        const rankClass = { first: 'selected-1', second: 'selected-2', third: 'selected-3' };
+                        card.classList.add(rankClass[rank]);
+                    }
+                });
+            });
+        }
+
+        // Aggiorna il riepilogo delle selezioni
+        function updateSelectionSummary() {
+            const selectedCount = Object.values(selectedVotes).filter(id => id !== null).length;
+            const summaryDiv = document.getElementById('selection-summary');
+            const listDiv = document.getElementById('selection-list');
+
+            if (selectedCount === 0) {
+                summaryDiv.style.display = 'none';
+                return;
+            }
+
+            summaryDiv.style.display = 'block';
+            listDiv.innerHTML = '';
+
+            const rankOrder = ['first', 'second', 'third'];
+            const rankLabels = ['1° Posto', '2° Posto', '3° Posto'];
+            const rankClasses = ['rank-1', 'rank-2', 'rank-3'];
+
+            rankOrder.forEach((rank, index) => {
+                const contestantId = selectedVotes[rank];
+                if (contestantId) {
+                    const contestant = contestants.find(c => c.id === contestantId);
+                    if (contestant) {
+                        const item = document.createElement('div');
+                        item.className = 'selection-item';
+                        item.innerHTML = `
+                            <div class="rank-badge ${rankClasses[index]}">${index + 1}</div>
+                            <div style="flex: 1;">
+                                <strong>${contestant.nome}</strong>
+                                <div style="font-size: 0.9em; opacity: 0.8;">${rankLabels[index]} - ${contestant.squadra} - ${contestant.personaggio}</div>
+                            </div>
+                            <button onclick="removeSelection('${rank}')" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 1.2em;">❌</button>
+                        `;
+                        listDiv.appendChild(item);
+                    }
+                }
+            });
+        }
+
+        // Aggiorna lo stato della votazione
+        function updateVotingStatus() {
+            const selectedCount = Object.values(selectedVotes).filter(id => id !== null).length;
+            const statusDiv = document.getElementById('voting-status');
+            const submitBtn = document.getElementById('submit-votes-btn');
+
+            document.getElementById('selected-count').textContent = selectedCount;
+
+            if (selectedCount === 3) {
+                statusDiv.className = 'voting-status completed';
+                statusDiv.innerHTML = `
+                    <h3>✅ Selezione Completata!</h3>
+                    <p>Hai selezionato tutti e 3 i costumi. Ora puoi inviare i tuoi voti!</p>
+                `;
+                submitBtn.disabled = false;
+            } else {
+                statusDiv.className = 'voting-status';
+                statusDiv.innerHTML = `
+                    <h3>🗳️ Seleziona i tuoi 3 costumi preferiti</h3>
+                    <p>Hai selezionato <span id="selected-count">${selectedCount}</span>/3 costumi</p>
+                `;
+                submitBtn.disabled = true;
+            }
+        }
+
+        // Rimuovi una selezione
+        function removeSelection(rank) {
+            const contestantId = selectedVotes[rank];
+            selectedVotes[rank] = null;
+
+            if (contestantId) {
+                const card = document.getElementById(`contestant-${contestantId}`);
+                if (card) {
+                    card.classList.remove('selected-1', 'selected-2', 'selected-3');
+                }
+            }
+
+            updateSelectionSummary();
+            updateVotingStatus();
+            showNotification('Selezione rimossa', 'warning');
+        }
+
+        // Cancella tutte le selezioni
+        function clearVotes() {
+            if (!confirm('Sei sicuro di voler cancellare tutte le selezioni?')) return;
+
+            selectedVotes = { first: null, second: null, third: null };
+            updateContestantCards();
+            updateSelectionSummary();
+            updateVotingStatus();
+
+            // Nascondi tutti i selettori
+            document.querySelectorAll('.rank-selector').forEach(selector => {
+                selector.style.display = 'none';
+            });
+
+            showNotification('Tutte le selezioni sono state cancellate', 'warning');
+        }
+
+        // Invia i voti
+        function submitVotes() {
+            const selectedCount = Object.values(selectedVotes).filter(id => id !== null).length;
+
+            if (selectedCount !== 3) {
+                showNotification('Devi selezionare esattamente 3 costumi!', 'error');
+                return;
+            }
+
+            if (!confirm('Sei sicuro di voler inviare questi voti? Non potrai più modificarli!')) return;
+
+            showLoading();
+
+            const votesData = {
+                first_place: selectedVotes.first,
+                second_place: selectedVotes.second,
+                third_place: selectedVotes.third
+            };
+
+            fetch('/api/votazione-costumi/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(votesData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.success) {
+                    showNotification('Voti inviati con successo! 🎉', 'success');
+                    hasVoted = true;
+
+                    // Aspetta un momento e poi mostra i risultati
+                    setTimeout(() => {
+                        loadResults();
+                    }, 2000);
+                } else {
+                    showNotification(data.error || 'Errore invio voti', 'error');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                console.error('Errore invio voti:', error);
+                showNotification('Errore di connessione', 'error');
+            });
+        }
+
+        // Carica i risultati
+        function loadResults() {
+            showLoading();
+
+            fetch('/api/votazione-costumi/results')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showError(data.error);
+                        return;
+                    }
+
+                    displayResults(data);
+                    hideLoading();
+
+                    // Nascondi schermata voto e mostra risultati
+                    document.getElementById('voting-screen').style.display = 'none';
+                    document.getElementById('results-screen').style.display = 'block';
+                })
+                .catch(error => {
+                    hideLoading();
+                    console.error('Errore caricamento risultati:', error);
+                    showError('Errore caricamento risultati.');
+                });
+        }
+
+        // Mostra i risultati
+        function displayResults(results) {
+            // Aggiorna subtitle
+            document.getElementById('results-subtitle').textContent =
+                `Totale votanti: ${results.total_voters} - Voti totali: ${results.total_votes}`;
+
+            // Mostra podio vincitori (top 3)
+            const podium = document.getElementById('winners-podium');
+            podium.innerHTML = '';
+
+            const topThree = results.results.slice(0, 3);
+            const positions = ['first', 'second', 'third'];
+            const crowns = ['👑', '🥈', '🥉'];
+            const labels = ['1° Posto', '2° Posto', '3° Posto'];
+
+            topThree.forEach((result, index) => {
+                const winnerCard = document.createElement('div');
+                winnerCard.className = `winner-card ${positions[index]}`;
+
+                const photoHtml = result.foto_profilo ?
+                    `<img src="/static/uploads/${result.foto_profilo}" alt="${result.nome}" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 15px;">` :
+                    '<div style="width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(45deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; font-size: 2em; margin: 0 auto 15px;">👤</div>';
+
+                winnerCard.innerHTML = `
+                    <div class="winner-crown">${crowns[index]}</div>
+                    ${photoHtml}
+                    <div class="winner-name">${result.nome}</div>
+                    <div class="winner-votes">${result.total_points} punti</div>
+                    <div style="font-size: 0.9em; opacity: 0.8;">${result.squadra} - ${result.personaggio}</div>
+                    <div style="font-size: 0.8em; margin-top: 10px; opacity: 0.7;">
+                        1°: ${result.first_votes} | 2°: ${result.second_votes} | 3°: ${result.third_votes}
+                    </div>
+                `;
+
+                podium.appendChild(winnerCard);
+            });
+
+            // Mostra classifica completa
+            const allResultsList = document.getElementById('all-results-list');
+            allResultsList.innerHTML = '';
+
+            results.results.forEach((result, index) => {
+                const position = index + 1;
+                const resultItem = document.createElement('div');
+                resultItem.className = 'result-item';
+
+                const photoHtml = result.foto_profilo ?
+                    `<img src="/static/uploads/${result.foto_profilo}" alt="${result.nome}">` :
+                    '👤';
+
+                // Colore posizione
+                let positionColor = '#ffd700';
+                if (position === 1) positionColor = '#ffd700';
+                else if (position === 2) positionColor = '#c0c0c0';
+                else if (position === 3) positionColor = '#cd7f32';
+                else positionColor = '#95a5a6';
+
+                resultItem.innerHTML = `
+                    <div class="result-position" style="color: ${positionColor};">${position}°</div>
+                    <div class="result-avatar">${photoHtml}</div>
+                    <div class="result-info">
+                        <div class="result-name">${result.nome}</div>
+                        <div class="result-details">${result.squadra} - ${result.personaggio}</div>
+                    </div>
+                    <div class="result-score">
+                        <div class="result-points">${result.total_points}</div>
+                        <div class="result-breakdown">
+                            1°: ${result.first_votes} (${result.first_votes * 20}pt) |
+                            2°: ${result.second_votes} (${result.second_votes * 10}pt) |
+                            3°: ${result.third_votes} (${result.third_votes * 5}pt)
+                        </div>
+                    </div>
+                `;
+
+                allResultsList.appendChild(resultItem);
+            });
+        }
+
+        // Utility functions
+        function getContestantName(id) {
+            const contestant = contestants.find(c => c.id === id);
+            return contestant ? contestant.nome : 'Sconosciuto';
+        }
+
+        function getRankName(rank) {
+            const names = { first: '1° posto', second: '2° posto', third: '3° posto' };
+            return names[rank] || rank;
+        }
+
+        function showLoading() {
+            document.getElementById('loading-screen').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-screen').style.display = 'none';
+        }
+
+        function showError(message) {
+            hideLoading();
+            document.getElementById('error-message-text').textContent = message;
+            document.getElementById('error-screen').style.display = 'block';
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 4000);
+        }
+
+        function goBack() {
+            window.location.href = '/dashboard';
+        }
+
+        // Nascondi selettori quando si clicca fuori
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.contestant-card') && !event.target.closest('.rank-selector')) {
+                document.querySelectorAll('.rank-selector').forEach(selector => {
+                    selector.style.display = 'none';
+                });
+            }
+        });
+    </script>
 </body>
 </html>

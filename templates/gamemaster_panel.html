@@ -135,6 +135,14 @@
             box-shadow: 0 5px 15px rgba(243, 156, 18, 0.4);
         }
 
+        .btn-secondary {
+            background: linear-gradient(45deg, #95a5a6, #7f8c8d);
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 5px 15px rgba(149, 165, 166, 0.4);
+        }
+
         .input-group {
             margin-bottom: 15px;
         }
@@ -252,7 +260,7 @@
 
         .question-header {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
             margin-bottom: 10px;
         }
@@ -314,6 +322,154 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+
+        /* Stili specifici per Votazione Costumi */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            border-color: #ffd700;
+            transform: translateY(-2px);
+        }
+
+        .stat-card .value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .results-container {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .result-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .result-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(5px);
+        }
+
+        .result-position {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-right: 15px;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .result-position.first { color: #ffd700; }
+        .result-position.second { color: #c0c0c0; }
+        .result-position.third { color: #cd7f32; }
+
+        .result-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            overflow: hidden;
+        }
+
+        .result-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .result-info {
+            flex: 1;
+        }
+
+        .result-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+
+        .result-details {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .result-score {
+            text-align: right;
+        }
+
+        .result-points {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .result-breakdown {
+            font-size: 0.8em;
+            opacity: 0.8;
+        }
+
+        .voters-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .voter-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .category-analysis-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .category-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #ffd700;
+        }
+
+        .category-stats {
+            font-size: 0.9em;
+            opacity: 0.9;
         }
 
         .notification {
@@ -390,6 +546,10 @@
             .tabs {
                 flex-direction: column;
             }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
     </style>
 </head>
@@ -404,6 +564,7 @@
             <button class="tab-btn active" onclick="switchTab('overview')">📊 Panoramica</button>
             <button class="tab-btn" onclick="switchTab('quiz')">🧠 Quiz</button>
             <button class="tab-btn" onclick="switchTab('indovina')">🕵️ Indovina Chi</button>
+            <button class="tab-btn" onclick="switchTab('votazione')">🏆 Votazione</button>
             <button class="tab-btn" onclick="switchTab('players')">👥 Giocatori</button>
         </div>
 
@@ -526,6 +687,73 @@
             </div>
         </div>
 
+        <!-- Tab Votazione Costumi -->
+        <div id="votazione-tab" class="tab-content">
+            <h2 class="section-title">🏆 Gestione Votazione Costumi</h2>
+
+            <!-- Statistiche Generali -->
+            <div class="control-card">
+                <h3>📊 Statistiche Votazione</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="value" style="color: #27ae60;" id="total-voters">0</div>
+                        <div class="label">Votanti</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value" style="color: #3498db;" id="total-votes">0</div>
+                        <div class="label">Voti Totali</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value" style="color: #f39c12;" id="voted-contestants">0</div>
+                        <div class="label">Candidati Votati</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value" style="color: #e74c3c;" id="non-voters-count">0</div>
+                        <div class="label">Non Votanti</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button class="btn" onclick="loadVotazioneStats()">🔄 Aggiorna Statistiche</button>
+                    <button class="btn btn-warning" onclick="resetVotazione()">🗑️ Reset Votazione</button>
+                    <button class="btn btn-secondary" onclick="exportVotazioneResults()">📊 Esporta Risultati</button>
+                </div>
+            </div>
+
+            <!-- Risultati Live -->
+            <div class="control-card">
+                <h3>🏅 Risultati Live</h3>
+                <div id="live-results-container" class="results-container">
+                    <!-- I risultati verranno caricati qui -->
+                </div>
+            </div>
+
+            <!-- Chi Ha Votato / Non Ha Votato -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-top: 25px;">
+                <div class="control-card">
+                    <h3>✅ Hanno Votato (<span id="voters-count">0</span>)</h3>
+                    <div id="voters-list" class="voters-list">
+                        <!-- Lista votanti -->
+                    </div>
+                </div>
+
+                <div class="control-card">
+                    <h3>⏳ Non Hanno Votato (<span id="non-voters-list-count">0</span>)</h3>
+                    <div id="non-voters-list" class="voters-list">
+                        <!-- Lista non votanti -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analisi per Posizione -->
+            <div class="control-card">
+                <h3>🎯 Analisi per Posizione</h3>
+                <div id="category-analysis" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 20px;">
+                    <!-- Analisi per categoria verranno caricate qui -->
+                </div>
+            </div>
+        </div>
+
         <!-- Tab Giocatori -->
         <div id="players-tab" class="tab-content">
             <h2 class="section-title">👥 Gestione Giocatori</h2>
@@ -575,6 +803,7 @@
         let quizQuestions = [];
         let indovinaPeople = [];
         let players = [];
+        let votazioneStats = {};
 
         // Inizializzazione
         document.addEventListener('DOMContentLoaded', function() {
@@ -597,12 +826,12 @@
 
         // Gestione tabs
         function switchTab(tabName) {
-            // Nasconde tutti i tab
+            // Nascondi tutti i tab
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
             });
 
-            // Rimuove active da tutti i bottoni
+            // Rimuovi active da tutti i bottoni
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
@@ -612,6 +841,11 @@
             event.target.classList.add('active');
 
             currentTab = tabName;
+
+            // Carica dati specifici per il tab
+            if (tabName === 'votazione') {
+                loadVotazioneStats();
+            }
         }
 
         // Carica stato gioco
@@ -648,8 +882,6 @@
                 messaggio: messages[gameType] || 'Gioco avviato!'
             };
 
-            console.log('Avvio gioco:', requestData); // Debug
-
             fetch('/api/gamemaster/game-state', {
                 method: 'POST',
                 headers: {
@@ -657,15 +889,8 @@
                 },
                 body: JSON.stringify(requestData)
             })
-            .then(response => {
-                console.log('Response status:', response.status); // Debug
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
-                console.log('Response data:', data); // Debug
                 if (data.success) {
                     showNotification(`${gameType.replace('_', ' ')} avviato con successo!`, 'success');
                     loadGameStatus();
@@ -674,7 +899,6 @@
                 }
             })
             .catch(error => {
-                console.error('Errore avvio gioco:', error); // Debug
                 showNotification(`Errore avvio gioco: ${error.message}`, 'error');
             });
         }
@@ -692,12 +916,7 @@
                     messaggio: 'Gioco terminato. In attesa del prossimo gioco...'
                 })
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     showNotification('Gioco fermato con successo', 'success');
@@ -707,7 +926,6 @@
                 }
             })
             .catch(error => {
-                console.error('Errore stop gioco:', error);
                 showNotification(`Errore stop gioco: ${error.message}`, 'error');
             });
         }
@@ -725,12 +943,7 @@
                     messaggio: 'Tutti i giochi sono stati fermati. In attesa del gamemaster...'
                 })
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     showNotification('Tutti i giochi fermati', 'success');
@@ -740,12 +953,11 @@
                 }
             })
             .catch(error => {
-                console.error('Errore stop giochi:', error);
                 showNotification(`Errore: ${error.message}`, 'error');
             });
         }
 
-        // Gestione Quiz
+        // === FUNZIONI QUIZ ===
         function loadQuizQuestions() {
             fetch('/api/gamemaster/quiz-questions')
                 .then(response => response.json())
@@ -849,7 +1061,7 @@
             });
         }
 
-        // Gestione Indovina Chi
+        // === FUNZIONI INDOVINA CHI ===
         function loadIndovinaPeople() {
             fetch('/api/gamemaster/indovina-people')
                 .then(response => response.json())
@@ -925,7 +1137,201 @@
             });
         }
 
-        // Gestione Giocatori
+        // === FUNZIONI VOTAZIONE COSTUMI ===
+        function loadVotazioneStats() {
+            fetch('/api/gamemaster/votazione-costumi/stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showNotification('Errore caricamento statistiche: ' + data.error, 'error');
+                        return;
+                    }
+
+                    votazioneStats = data;
+                    updateVotazioneDisplay(data);
+                })
+                .catch(error => {
+                    console.error('Errore caricamento statistiche votazione:', error);
+                    showNotification('Errore di connessione', 'error');
+                });
+
+            // Carica anche i risultati live
+            loadVotazioneResults();
+        }
+
+        function updateVotazioneDisplay(data) {
+            // Aggiorna statistiche generali
+            document.getElementById('total-voters').textContent = data.general_stats.total_voters;
+            document.getElementById('total-votes').textContent = data.general_stats.total_votes;
+            document.getElementById('voted-contestants').textContent = data.general_stats.voted_contestants;
+            document.getElementById('non-voters-count').textContent = data.non_voters.length;
+
+            // Aggiorna contatori nelle sezioni
+            document.getElementById('voters-count').textContent = data.voters.length;
+            document.getElementById('non-voters-list-count').textContent = data.non_voters.length;
+
+            // Aggiorna lista votanti
+            const votersList = document.getElementById('voters-list');
+            if (data.voters.length === 0) {
+                votersList.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 20px;">Nessuno ha ancora votato</div>';
+            } else {
+                let votersHtml = '';
+                data.voters.forEach(voter => {
+                    votersHtml += `
+                        <div class="voter-item">
+                            <span>${voter.nome}</span>
+                            <span style="font-size: 0.9em; opacity: 0.8;">Squadra ${voter.squadra}</span>
+                        </div>
+                    `;
+                });
+                votersList.innerHTML = votersHtml;
+            }
+
+            // Aggiorna lista non votanti
+            const nonVotersList = document.getElementById('non-voters-list');
+            if (data.non_voters.length === 0) {
+                nonVotersList.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 20px;">Tutti hanno votato! 🎉</div>';
+            } else {
+                let nonVotersHtml = '';
+                data.non_voters.forEach(nonVoter => {
+                    nonVotersHtml += `
+                        <div class="voter-item">
+                            <span>${nonVoter.nome}</span>
+                            <span style="font-size: 0.9em; opacity: 0.8;">Squadra ${nonVoter.squadra}</span>
+                        </div>
+                    `;
+                });
+                nonVotersList.innerHTML = nonVotersHtml;
+            }
+
+            // Aggiorna analisi per categoria
+            const categoryAnalysis = document.getElementById('category-analysis');
+            const categories = ['primo_posto', 'secondo_posto', 'terzo_posto'];
+            const categoryLabels = ['🥇 Primo Posto', '🥈 Secondo Posto', '🥉 Terzo Posto'];
+
+            let categoryHtml = '';
+            categories.forEach((category, index) => {
+                const categoryData = data.top_by_category[category] || [];
+                const topContestant = categoryData[0] || { nome: 'Nessuno', votes: 0 };
+
+                categoryHtml += `
+                    <div class="category-analysis-item">
+                        <div class="category-title">${categoryLabels[index]}</div>
+                        <div style="font-size: 1.5em; font-weight: bold; margin: 10px 0;">${topContestant.nome}</div>
+                        <div class="category-stats">${topContestant.votes} voti</div>
+                    </div>
+                `;
+            });
+            categoryAnalysis.innerHTML = categoryHtml;
+        }
+
+        function loadVotazioneResults() {
+            fetch('/api/votazione-costumi/results')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error('Errore caricamento risultati:', data.error);
+                        return;
+                    }
+
+                    displayVotazioneResults(data.results);
+                })
+                .catch(error => {
+                    console.error('Errore caricamento risultati votazione:', error);
+                });
+        }
+
+        function displayVotazioneResults(results) {
+            const container = document.getElementById('live-results-container');
+
+            if (results.length === 0) {
+                container.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 40px;">Nessun risultato ancora disponibile</div>';
+                return;
+            }
+
+            let html = '';
+            results.forEach((result, index) => {
+                const position = index + 1;
+                let positionClass = '';
+                if (position === 1) positionClass = 'first';
+                else if (position === 2) positionClass = 'second';
+                else if (position === 3) positionClass = 'third';
+
+                const photoHtml = result.foto_profilo ?
+                    `<img src="/static/uploads/${result.foto_profilo}" alt="${result.nome}">` :
+                    '👤';
+
+                html += `
+                    <div class="result-item">
+                        <div class="result-position ${positionClass}">${position}°</div>
+                        <div class="result-avatar">${photoHtml}</div>
+                        <div class="result-info">
+                            <div class="result-name">${result.nome}</div>
+                            <div class="result-details">${result.squadra} - ${result.personaggio}</div>
+                        </div>
+                        <div class="result-score">
+                            <div class="result-points">${result.total_points}</div>
+                            <div class="result-breakdown">
+                                1°: ${result.first_votes} | 2°: ${result.second_votes} | 3°: ${result.third_votes}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function resetVotazione() {
+            if (!confirm('Sei sicuro di voler resettare TUTTI i voti della votazione costumi? Questa azione non può essere annullata!')) return;
+
+            fetch('/api/gamemaster/votazione-costumi/reset', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Votazione costumi resettata!', 'success');
+                    loadVotazioneStats();
+                } else {
+                    showNotification(data.error || 'Errore reset votazione', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Errore di connessione', 'error');
+            });
+        }
+
+        function exportVotazioneResults() {
+            if (!votazioneStats.general_stats || votazioneStats.general_stats.total_voters === 0) {
+                showNotification('Nessun dato da esportare', 'warning');
+                return;
+            }
+
+            // Genera dati per export
+            const exportData = {
+                data_export: new Date().toISOString(),
+                statistiche_generali: votazioneStats.general_stats,
+                votanti: votazioneStats.voters,
+                non_votanti: votazioneStats.non_voters,
+                analisi_categorie: votazioneStats.top_by_category
+            };
+
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `votazione_costumi_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+
+            showNotification('📊 Risultati esportati!', 'success');
+        }
+
+        // === FUNZIONI GIOCATORI ===
         function loadPlayers() {
             fetch('/api/gamemaster/players')
                 .then(response => response.json())
@@ -1000,7 +1406,7 @@
             .then(data => {
                 if (data.success) {
                     showNotification(`Giocatore ${action} con successo`, 'success');
-                    loadPlayers(); // Ricarica la lista
+                    loadPlayers();
                 } else {
                     showNotification(data.error || 'Errore modifica stato', 'error');
                 }
@@ -1023,7 +1429,7 @@
             .then(data => {
                 if (data.success) {
                     showNotification('Tutti i punteggi sono stati resettati!', 'success');
-                    loadPlayers(); // Ricarica la lista
+                    loadPlayers();
                 } else {
                     showNotification(data.error || 'Errore reset punteggi', 'error');
                 }
@@ -1033,7 +1439,7 @@
             });
         }
 
-        // Gestione Modal Indizi
+        // === GESTIONE MODAL INDIZI ===
         function setupModal() {
             const modal = document.getElementById('clues-modal');
             const span = document.querySelector('.close');
@@ -1150,7 +1556,7 @@
             });
         }
 
-        // Utility functions
+        // === UTILITY FUNCTIONS ===
         function showNotification(message, type = 'info') {
             // Rimuovi notifiche esistenti
             const existing = document.querySelector('.notification');
