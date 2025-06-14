@@ -1122,7 +1122,7 @@ def indovina_chi():
 
 # ==================== API INDOVINA CHI ====================
 
-# API per ottenere una persona casuale da indovinare
+# API per ottenere una persona casuale da indovinare (evitando quelle già giocate)
 @app.route('/api/indovina-chi/start-game', methods=['POST'])
 def start_indovina_chi_game():
     if 'player_id' not in session:
@@ -1160,18 +1160,41 @@ def start_indovina_chi_game():
                 'nuova_partita': False
             })
 
-        # Ottieni una persona casuale attiva
+        # Ottieni persone che il giocatore NON ha mai giocato
         cursor.execute("""
-            SELECT id, nome, descrizione FROM indovina_persone 
-            WHERE attivo = TRUE 
+            SELECT ip.id, ip.nome, ip.descrizione FROM indovina_persone ip
+            WHERE ip.attivo = TRUE 
+            AND ip.id NOT IN (
+                SELECT DISTINCT persona_id 
+                FROM indovina_partite 
+                WHERE giocatore_id = %s AND completata = TRUE
+            )
             ORDER BY RAND() LIMIT 1
-        """, )
+        """, (session['player_id'],))
 
         persona = cursor.fetchone()
+
         if not persona:
-            return jsonify({'error': 'Nessuna persona disponibile per il gioco'})
+            # Il giocatore ha completato tutte le persone disponibili
+            return jsonify({
+                'game_completed': True,
+                'error': 'Complimenti! Hai completato tutte le persone disponibili!'
+            })
 
         persona_id, nome, descrizione = persona
+
+        # Conta persone totali e quelle già completate
+        cursor.execute("""
+            SELECT COUNT(*) FROM indovina_persone WHERE attivo = TRUE
+        """)
+        persone_totali = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT COUNT(DISTINCT persona_id) 
+            FROM indovina_partite 
+            WHERE giocatore_id = %s AND completata = TRUE
+        """, (session['player_id'],))
+        persone_completate = cursor.fetchone()[0]
 
         # Crea nuova partita
         cursor.execute("""
@@ -1188,7 +1211,12 @@ def start_indovina_chi_game():
             'persona_id': persona_id,
             'persona_nome': nome,
             'persona_descrizione': descrizione,
-            'nuova_partita': True
+            'nuova_partita': True,
+            'progresso': {
+                'completate': persone_completate,
+                'totali': persone_totali,
+                'rimanenti': persone_totali - persone_completate
+            }
         })
 
     except mysql.connector.Error as err:
@@ -1391,6 +1419,33 @@ def get_indovina_chi_game_status():
     cursor = conn.cursor()
 
     try:
+        # Controlla se ha completato tutte le persone
+        cursor.execute("""
+            SELECT COUNT(*) FROM indovina_persone WHERE attivo = TRUE
+        """)
+        persone_totali = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT COUNT(DISTINCT persona_id) 
+            FROM indovina_partite 
+            WHERE giocatore_id = %s AND completata = TRUE
+        """, (session['player_id'],))
+        persone_completate = cursor.fetchone()[0]
+
+        # Se ha completato tutto
+        if persone_completate >= persone_totali and persone_totali > 0:
+            return jsonify({
+                'game_fully_completed': True,
+                'has_active_game': False,
+                'can_start_new': False,
+                'progresso': {
+                    'completate': persone_completate,
+                    'totali': persone_totali,
+                    'rimanenti': 0
+                },
+                'messaggio_finale': f'🎉 Complimenti! Hai completato tutte le {persone_totali} persone disponibili!'
+            })
+
         # Ottieni l'ultima partita del giocatore
         cursor.execute("""
             SELECT ip.id, ip.persona_id, ip.indizi_richiesti, ip.punti_guadagnati, 
@@ -1407,16 +1462,27 @@ def get_indovina_chi_game_status():
         if not partita:
             return jsonify({
                 'has_active_game': False,
-                'can_start_new': True
+                'can_start_new': True,
+                'progresso': {
+                    'completate': persone_completate,
+                    'totali': persone_totali,
+                    'rimanenti': persone_totali - persone_completate
+                }
             })
 
         partita_id, persona_id, indizi_richiesti, punti_guadagnati, risposta_corretta, completata, tempo_impiegato, nome, descrizione = partita
 
-        # Se la partita è completata, può iniziarne una nuova
+        # Se la partita è completata, può iniziarne una nuova (se ce ne sono ancora)
         if completata:
+            persone_rimanenti = persone_totali - persone_completate
             return jsonify({
                 'has_active_game': False,
-                'can_start_new': True,
+                'can_start_new': persone_rimanenti > 0,
+                'progresso': {
+                    'completate': persone_completate,
+                    'totali': persone_totali,
+                    'rimanenti': persone_rimanenti
+                },
                 'last_game': {
                     'persona_nome': nome,
                     'corretta': bool(risposta_corretta),
@@ -1458,7 +1524,12 @@ def get_indovina_chi_game_status():
             'indizi_richiesti': indizi_richiesti,
             'indizi_ottenuti': indizi_ottenuti,
             'totale_indizi': totale_indizi,
-            'tutti_indizi_usati': indizi_richiesti >= totale_indizi
+            'tutti_indizi_usati': indizi_richiesti >= totale_indizi,
+            'progresso': {
+                'completate': persone_completate,
+                'totali': persone_totali,
+                'rimanenti': persone_totali - persone_completate
+            }
         })
 
     except mysql.connector.Error as err:
@@ -1492,6 +1563,19 @@ def get_indovina_chi_stats():
 
         stats = cursor.fetchone()
 
+        # Conta persone totali e completate
+        cursor.execute("""
+            SELECT COUNT(*) FROM indovina_persone WHERE attivo = TRUE
+        """)
+        persone_totali = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT COUNT(DISTINCT persona_id) 
+            FROM indovina_partite 
+            WHERE giocatore_id = %s AND completata = TRUE
+        """, (session['player_id'],))
+        persone_completate = cursor.fetchone()[0]
+
         if not stats or stats[0] == 0:
             return jsonify({
                 'partite_totali': 0,
@@ -1500,7 +1584,14 @@ def get_indovina_chi_stats():
                 'percentuale_vittoria': 0,
                 'media_indizi': 0,
                 'tempo_medio': 0,
-                'miglior_partita': None
+                'miglior_partita': None,
+                'progresso': {
+                    'persone_completate': persone_completate,
+                    'persone_totali': persone_totali,
+                    'percentuale_completamento': round(
+                        (persone_completate / persone_totali * 100) if persone_totali > 0 else 0, 1),
+                    'gioco_completato': persone_completate >= persone_totali and persone_totali > 0
+                }
             })
 
         partite_totali, partite_vinte, punti_totali, media_indizi, tempo_medio = stats
@@ -1518,6 +1609,20 @@ def get_indovina_chi_stats():
 
         miglior_partita = cursor.fetchone()
 
+        # Lista persone ancora da completare
+        cursor.execute("""
+            SELECT p.nome FROM indovina_persone p
+            WHERE p.attivo = TRUE 
+            AND p.id NOT IN (
+                SELECT DISTINCT persona_id 
+                FROM indovina_partite 
+                WHERE giocatore_id = %s AND completata = TRUE
+            )
+            ORDER BY p.nome
+        """, (session['player_id'],))
+
+        persone_rimanenti = [row[0] for row in cursor.fetchall()]
+
         return jsonify({
             'partite_totali': partite_totali,
             'partite_vinte': partite_vinte,
@@ -1530,7 +1635,15 @@ def get_indovina_chi_stats():
                 'indizi': miglior_partita[1],
                 'tempo': miglior_partita[2],
                 'persona': miglior_partita[3]
-            } if miglior_partita else None
+            } if miglior_partita else None,
+            'progresso': {
+                'persone_completate': persone_completate,
+                'persone_totali': persone_totali,
+                'percentuale_completamento': round(
+                    (persone_completate / persone_totali * 100) if persone_totali > 0 else 0, 1),
+                'gioco_completato': persone_completate >= persone_totali and persone_totali > 0,
+                'persone_rimanenti': persone_rimanenti
+            }
         })
 
     except mysql.connector.Error as err:

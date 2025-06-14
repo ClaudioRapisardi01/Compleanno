@@ -469,17 +469,45 @@
 
         <!-- Start Screen -->
         <div class="start-screen" id="start-screen" style="display: none;">
-            <div class="description">
+            <div class="description" id="start-description">
                 Benvenuto al gioco Indovina Chi! Dovrai indovinare il nome di una persona basandoti sugli indizi che ti verranno forniti.
                 Meno indizi usi, più punti guadagni!
+            </div>
+
+            <!-- Barra progresso -->
+            <div class="progress-section" id="progress-section" style="display: none; margin: 30px 0;">
+                <h3 style="color: #ffd700; text-align: center; margin-bottom: 15px;">🎯 Progresso Gioco</h3>
+                <div style="background: rgba(255,255,255,0.1); border-radius: 15px; padding: 20px; text-align: center;">
+                    <div style="font-size: 2em; font-weight: bold; color: #ffd700; margin-bottom: 10px;" id="progress-text">
+                        0 / 0
+                    </div>
+                    <div style="margin-bottom: 15px;">Persone completate</div>
+                    <div style="background: rgba(255,255,255,0.2); border-radius: 10px; height: 20px; overflow: hidden;">
+                        <div id="progress-bar-fill" style="height: 100%; background: linear-gradient(45deg, #27ae60, #2ecc71); width: 0%; transition: width 0.5s ease;"></div>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.9em; opacity: 0.8;" id="progress-percentage">0% completato</div>
+                </div>
+            </div>
+
+            <!-- Game Completed Screen -->
+            <div class="game-completed" id="game-completed" style="display: none; text-align: center; padding: 40px;">
+                <div style="font-size: 5em; margin-bottom: 20px;">🏆</div>
+                <h2 style="color: #ffd700; font-size: 2.5em; margin-bottom: 20px;">Gioco Completato!</h2>
+                <div style="font-size: 1.3em; margin-bottom: 30px; line-height: 1.6;">
+                    🎉 Complimenti! Hai completato tutte le persone disponibili! 🎉
+                </div>
+                <div style="background: rgba(39, 174, 96, 0.2); border: 2px solid #27ae60; border-radius: 20px; padding: 30px; margin: 30px 0;">
+                    <h3 style="color: #27ae60; margin-bottom: 15px;">🌟 Risultato Finale</h3>
+                    <div id="final-completion-stats"></div>
+                </div>
             </div>
 
             <div class="stats-grid" id="stats-grid">
                 <!-- Le statistiche verranno caricate qui -->
             </div>
 
-            <div class="controls">
-                <button class="btn" onclick="startNewGame()">🎮 Inizia Nuova Partita</button>
+            <div class="controls" id="start-controls">
+                <button class="btn" id="start-new-btn" onclick="startNewGame()">🎮 Inizia Nuova Partita</button>
                 <button class="btn btn-secondary" onclick="goBack()">⬅️ Torna alla Dashboard</button>
             </div>
         </div>
@@ -597,12 +625,15 @@
                         return;
                     }
 
-                    if (data.has_active_game) {
+                    if (data.game_fully_completed) {
+                        // Gioco completamente finito
+                        loadCompletedGameScreen(data);
+                    } else if (data.has_active_game) {
                         // Ha una partita attiva
                         loadActiveGame(data);
                     } else {
                         // Nessuna partita attiva, carica schermata iniziale
-                        loadStartScreen(data.last_game);
+                        loadStartScreen(data.last_game, data.progresso);
                     }
                 })
                 .catch(error => {
@@ -611,15 +642,97 @@
                 });
         }
 
-        // Carica la schermata iniziale
-        function loadStartScreen(lastGame) {
+        // Carica schermata gioco completato
+        function loadCompletedGameScreen(data) {
             hideLoading();
+
+            // Nascondi elementi non necessari
+            document.getElementById('start-description').style.display = 'none';
+            document.getElementById('stats-grid').style.display = 'none';
+            document.getElementById('start-controls').style.display = 'none';
+            document.getElementById('progress-section').style.display = 'none';
+
+            // Mostra schermata completamento
+            document.getElementById('game-completed').style.display = 'block';
+            document.getElementById('start-screen').style.display = 'block';
+
+            // Carica statistiche finali
+            loadFinalStats();
+        }
+
+        // Carica statistiche finali
+        function loadFinalStats() {
+            fetch('/api/indovina-chi/stats')
+                .then(response => response.json())
+                .then(data => {
+                    const statsContainer = document.getElementById('final-completion-stats');
+                    statsContainer.innerHTML = `
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px;">
+                            <div>
+                                <div style="font-size: 2em; font-weight: bold; color: #ffd700;">${data.partite_totali}</div>
+                                <div>Partite Giocate</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 2em; font-weight: bold; color: #ffd700;">${data.partite_vinte}</div>
+                                <div>Partite Vinte</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 2em; font-weight: bold; color: #ffd700;">${data.punti_totali}</div>
+                                <div>Punti Totali</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 2em; font-weight: bold; color: #ffd700;">${data.percentuale_vittoria}%</div>
+                                <div>Percentuale Vittoria</div>
+                            </div>
+                        </div>
+                    `;
+                })
+                .catch(error => {
+                    console.error('Errore caricamento statistiche finali:', error);
+                });
+        }
+
+        // Carica la schermata iniziale
+        function loadStartScreen(lastGame, progresso) {
+            hideLoading();
+
+            // Mostra/nascondi elementi appropriati
+            document.getElementById('start-description').style.display = 'block';
+            document.getElementById('stats-grid').style.display = 'block';
+            document.getElementById('start-controls').style.display = 'block';
+            document.getElementById('game-completed').style.display = 'none';
+
+            // Mostra progresso se disponibile
+            if (progresso && progresso.totali > 0) {
+                document.getElementById('progress-section').style.display = 'block';
+                updateProgressDisplay(progresso);
+            } else {
+                document.getElementById('progress-section').style.display = 'none';
+            }
 
             // Carica statistiche
             loadPlayerStats();
 
             // Mostra schermata iniziale
             document.getElementById('start-screen').style.display = 'block';
+        }
+
+        // Aggiorna display progresso
+        function updateProgressDisplay(progresso) {
+            document.getElementById('progress-text').textContent = `${progresso.completate} / ${progresso.totali}`;
+
+            const percentage = (progresso.completate / progresso.totali * 100);
+            document.getElementById('progress-bar-fill').style.width = percentage + '%';
+            document.getElementById('progress-percentage').textContent = `${Math.round(percentage)}% completato`;
+
+            // Aggiorna descrizione
+            if (progresso.rimanenti > 0) {
+                document.getElementById('start-description').innerHTML = `
+                    Benvenuto al gioco Indovina Chi! Dovrai indovinare il nome di una persona basandoti sugli indizi che ti verranno forniti.
+                    Meno indizi usi, più punti guadagni!<br><br>
+                    <strong style="color: #ffd700;">Ti rimangono ${progresso.rimanenti} persone da completare!</strong>
+                `;
+            }
         }
 
         // Carica le statistiche del giocatore
@@ -633,7 +746,9 @@
                     }
 
                     const statsContainer = document.getElementById('stats-grid');
-                    statsContainer.innerHTML = `
+
+                    // Statistiche base
+                    let statsHTML = `
                         <div class="info-card">
                             <h3>Partite Giocate</h3>
                             <div class="value">${data.partite_totali}</div>
@@ -654,14 +769,53 @@
                         </div>
                     `;
 
+                    // Progresso completamento
+                    if (data.progresso && data.progresso.persone_totali > 0) {
+                        statsHTML += `
+                            <div class="info-card" style="grid-column: 1 / -1;">
+                                <h3>📈 Progresso Completamento</h3>
+                                <div class="value">${data.progresso.percentuale_completamento}%</div>
+                                <div class="label">${data.progresso.persone_completate}/${data.progresso.persone_totali} persone completate</div>
+                            </div>
+                        `;
+                    }
+
+                    // Miglior partita
                     if (data.miglior_partita) {
-                        statsContainer.innerHTML += `
+                        statsHTML += `
                             <div class="info-card" style="grid-column: 1 / -1;">
                                 <h3>🏆 Miglior Partita</h3>
                                 <div class="value">${data.miglior_partita.punti} punti</div>
                                 <div class="label">${data.miglior_partita.persona} con ${data.miglior_partita.indizi} indizi</div>
                             </div>
                         `;
+                    }
+
+                    // Persone rimanenti
+                    if (data.progresso && data.progresso.persone_rimanenti && data.progresso.persone_rimanenti.length > 0) {
+                        const rimanenti = data.progresso.persone_rimanenti.slice(0, 5); // Mostra solo le prime 5
+                        const altri = data.progresso.persone_rimanenti.length - 5;
+
+                        statsHTML += `
+                            <div class="info-card" style="grid-column: 1 / -1;">
+                                <h3>🎯 Prossime Persone</h3>
+                                <div style="font-size: 0.9em; line-height: 1.6;">
+                                    ${rimanenti.join(', ')}${altri > 0 ? ` e altre ${altri}...` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    statsContainer.innerHTML = statsHTML;
+
+                    // Disabilita il bottone se il gioco è completato
+                    if (data.progresso && data.progresso.gioco_completato) {
+                        const startBtn = document.getElementById('start-new-btn');
+                        if (startBtn) {
+                            startBtn.disabled = true;
+                            startBtn.textContent = '🎉 Gioco Completato!';
+                            startBtn.style.background = 'linear-gradient(45deg, #95a5a6, #7f8c8d)';
+                        }
                     }
                 })
                 .catch(error => {
@@ -717,6 +871,14 @@
             })
             .then(response => response.json())
             .then(data => {
+                if (data.game_completed) {
+                    hideLoading();
+                    showNotification(data.error, 'success');
+                    // Ricarica la pagina per mostrare lo stato completato
+                    setTimeout(() => location.reload(), 2000);
+                    return;
+                }
+
                 if (data.success) {
                     gameData.partita_id = data.partita_id;
                     gameData.persona_id = data.persona_id;
@@ -745,7 +907,14 @@
                     // Avvia timer
                     startGameTimer();
 
-                    showNotification(`Nuova partita iniziata! Persona: "${data.persona_descrizione || 'Una persona misteriosa'}"`, 'success');
+                    let notificationMsg = `Nuova partita iniziata! Persona: "${data.persona_descrizione || 'Una persona misteriosa'}"`;
+
+                    // Aggiungi info progresso se disponibile
+                    if (data.progresso) {
+                        notificationMsg += ` (${data.progresso.rimanenti} persone rimanenti)`;
+                    }
+
+                    showNotification(notificationMsg, 'success');
 
                     // Gestione tasto Enter
                     document.getElementById('answer-input').addEventListener('keypress', function(e) {
