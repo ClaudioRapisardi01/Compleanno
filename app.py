@@ -1118,6 +1118,527 @@ def indovina_chi():
     return render_template('indovina_chi.html')
 
 
+# Aggiungi queste route al tuo app.py, prima della riga "if __name__ == '__main__':"
+
+# ==================== API INDOVINA CHI ====================
+
+# API per ottenere una persona casuale da indovinare
+@app.route('/api/indovina-chi/start-game', methods=['POST'])
+def start_indovina_chi_game():
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Controlla se il giocatore ha già una partita attiva
+        cursor.execute("""
+            SELECT id, persona_id FROM indovina_partite 
+            WHERE giocatore_id = %s AND completata = FALSE
+            ORDER BY timestamp DESC LIMIT 1
+        """, (session['player_id'],))
+
+        partita_attiva = cursor.fetchone()
+
+        if partita_attiva:
+            # Ritorna la partita esistente
+            partita_id, persona_id = partita_attiva
+
+            # Ottieni info persona
+            cursor.execute("""
+                SELECT nome, descrizione FROM indovina_persone WHERE id = %s
+            """, (persona_id,))
+            persona = cursor.fetchone()
+
+            return jsonify({
+                'success': True,
+                'partita_id': partita_id,
+                'persona_id': persona_id,
+                'persona_nome': persona[0] if persona else 'Sconosciuta',
+                'persona_descrizione': persona[1] if persona else '',
+                'nuova_partita': False
+            })
+
+        # Ottieni una persona casuale attiva
+        cursor.execute("""
+            SELECT id, nome, descrizione FROM indovina_persone 
+            WHERE attivo = TRUE 
+            ORDER BY RAND() LIMIT 1
+        """, )
+
+        persona = cursor.fetchone()
+        if not persona:
+            return jsonify({'error': 'Nessuna persona disponibile per il gioco'})
+
+        persona_id, nome, descrizione = persona
+
+        # Crea nuova partita
+        cursor.execute("""
+            INSERT INTO indovina_partite (giocatore_id, persona_id, indizi_richiesti, punti_guadagnati, completata)
+            VALUES (%s, %s, 0, 0, FALSE)
+        """, (session['player_id'], persona_id))
+
+        partita_id = cursor.lastrowid
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'partita_id': partita_id,
+            'persona_id': persona_id,
+            'persona_nome': nome,
+            'persona_descrizione': descrizione,
+            'nuova_partita': True
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per richiedere un indizio
+@app.route('/api/indovina-chi/get-clue', methods=['POST'])
+def get_indovina_chi_clue():
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    partita_id = data.get('partita_id')
+
+    if not partita_id:
+        return jsonify({'error': 'ID partita mancante'}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Verifica che la partita appartenga al giocatore
+        cursor.execute("""
+            SELECT persona_id, indizi_richiesti, completata 
+            FROM indovina_partite 
+            WHERE id = %s AND giocatore_id = %s
+        """, (partita_id, session['player_id']))
+
+        partita = cursor.fetchone()
+        if not partita:
+            return jsonify({'error': 'Partita non trovata'}), 404
+
+        persona_id, indizi_richiesti, completata = partita
+
+        if completata:
+            return jsonify({'error': 'Partita già completata'}), 400
+
+        # Calcola il prossimo indizio
+        prossimo_indizio_numero = indizi_richiesti + 1
+
+        # Ottieni l'indizio
+        cursor.execute("""
+            SELECT indizio, punti FROM indovina_indizi 
+            WHERE persona_id = %s AND ordine = %s
+        """, (persona_id, prossimo_indizio_numero))
+
+        indizio_data = cursor.fetchone()
+        if not indizio_data:
+            return jsonify({'error': 'Nessun indizio disponibile per questo numero'})
+
+        indizio_testo, punti = indizio_data
+
+        # Registra la richiesta dell'indizio
+        cursor.execute("""
+            INSERT INTO indovina_risposte (partita_id, giocatore_id, indizio_numero)
+            VALUES (%s, %s, %s)
+        """, (partita_id, session['player_id'], prossimo_indizio_numero))
+
+        # Aggiorna il numero di indizi richiesti
+        cursor.execute("""
+            UPDATE indovina_partite 
+            SET indizi_richiesti = %s 
+            WHERE id = %s
+        """, (prossimo_indizio_numero, partita_id))
+
+        # Conta il totale degli indizi disponibili
+        cursor.execute("""
+            SELECT COUNT(*) FROM indovina_indizi WHERE persona_id = %s
+        """, (persona_id,))
+        totale_indizi = cursor.fetchone()[0]
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'indizio': indizio_testo,
+            'indizio_numero': prossimo_indizio_numero,
+            'punti_possibili': punti,
+            'indizi_richiesti': prossimo_indizio_numero,
+            'totale_indizi': totale_indizi,
+            'tutti_indizi_usati': prossimo_indizio_numero >= totale_indizi
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per inviare una risposta
+@app.route('/api/indovina-chi/submit-answer', methods=['POST'])
+def submit_indovina_chi_answer():
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    partita_id = data.get('partita_id')
+    risposta = data.get('risposta', '').strip()
+    tempo_impiegato = data.get('tempo_impiegato', 0)
+
+    if not all([partita_id, risposta]):
+        return jsonify({'error': 'Dati mancanti'}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Ottieni info partita
+        cursor.execute("""
+            SELECT ip.persona_id, ip.indizi_richiesti, ip.completata, p.nome
+            FROM indovina_partite ip
+            JOIN indovina_persone p ON ip.persona_id = p.id
+            WHERE ip.id = %s AND ip.giocatore_id = %s
+        """, (partita_id, session['player_id']))
+
+        partita_info = cursor.fetchone()
+        if not partita_info:
+            return jsonify({'error': 'Partita non trovata'}), 404
+
+        persona_id, indizi_richiesti, completata, nome_corretto = partita_info
+
+        if completata:
+            return jsonify({'error': 'Partita già completata'}), 400
+
+        # Verifica se la risposta è corretta (case-insensitive)
+        risposta_corretta = risposta.lower().strip() == nome_corretto.lower().strip()
+
+        # Calcola punteggio
+        punti_guadagnati = 0
+        if risposta_corretta:
+            # Punteggio basato sugli indizi usati
+            if indizi_richiesti == 1:
+                punti_guadagnati = 100  # Indovinato al primo indizio
+            elif indizi_richiesti == 2:
+                punti_guadagnati = 80  # Secondo indizio
+            elif indizi_richiesti == 3:
+                punti_guadagnati = 60  # Terzo indizio
+            elif indizi_richiesti == 4:
+                punti_guadagnati = 40  # Quarto indizio
+            else:
+                punti_guadagnati = 20  # Più di 4 indizi
+
+            # Bonus per velocità (se completato in meno di 2 minuti)
+            if tempo_impiegato > 0 and tempo_impiegato < 120:
+                punti_guadagnati += 10
+
+        # Aggiorna la partita
+        cursor.execute("""
+            UPDATE indovina_partite 
+            SET risposta_corretta = %s, punti_guadagnati = %s, 
+                tempo_impiegato = %s, completata = TRUE
+            WHERE id = %s
+        """, (risposta_corretta, punti_guadagnati, tempo_impiegato, partita_id))
+
+        # Se la risposta è corretta, aggiorna i punti del giocatore
+        if risposta_corretta:
+            cursor.execute("""
+                UPDATE giocatori 
+                SET punti_totali = punti_totali + %s 
+                WHERE id = %s
+            """, (punti_guadagnati, session['player_id']))
+
+            # Registra partecipazione
+            cursor.execute("""
+                INSERT INTO partecipazioni (giocatore_id, gioco, punti)
+                VALUES (%s, 'indovina_chi', %s)
+            """, (session['player_id'], punti_guadagnati))
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'corretta': risposta_corretta,
+            'nome_corretto': nome_corretto,
+            'punti_guadagnati': punti_guadagnati,
+            'indizi_usati': indizi_richiesti,
+            'tempo_impiegato': tempo_impiegato,
+            'messaggio': 'Corretto! Ottimo lavoro!' if risposta_corretta else f'Sbagliato! La risposta corretta era: {nome_corretto}'
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per ottenere lo stato di una partita
+@app.route('/api/indovina-chi/game-status')
+def get_indovina_chi_game_status():
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Ottieni l'ultima partita del giocatore
+        cursor.execute("""
+            SELECT ip.id, ip.persona_id, ip.indizi_richiesti, ip.punti_guadagnati, 
+                   ip.risposta_corretta, ip.completata, ip.tempo_impiegato,
+                   p.nome, p.descrizione
+            FROM indovina_partite ip
+            JOIN indovina_persone p ON ip.persona_id = p.id
+            WHERE ip.giocatore_id = %s
+            ORDER BY ip.timestamp DESC LIMIT 1
+        """, (session['player_id'],))
+
+        partita = cursor.fetchone()
+
+        if not partita:
+            return jsonify({
+                'has_active_game': False,
+                'can_start_new': True
+            })
+
+        partita_id, persona_id, indizi_richiesti, punti_guadagnati, risposta_corretta, completata, tempo_impiegato, nome, descrizione = partita
+
+        # Se la partita è completata, può iniziarne una nuova
+        if completata:
+            return jsonify({
+                'has_active_game': False,
+                'can_start_new': True,
+                'last_game': {
+                    'persona_nome': nome,
+                    'corretta': bool(risposta_corretta),
+                    'punti': punti_guadagnati,
+                    'indizi_usati': indizi_richiesti
+                }
+            })
+
+        # Ottieni gli indizi già richiesti
+        cursor.execute("""
+            SELECT ii.indizio, ii.ordine, ii.punti
+            FROM indovina_indizi ii
+            JOIN indovina_risposte ir ON ir.indizio_numero = ii.ordine
+            WHERE ir.partita_id = %s AND ii.persona_id = %s
+            ORDER BY ii.ordine ASC
+        """, (partita_id, persona_id))
+
+        indizi_ottenuti = []
+        for indizio_data in cursor.fetchall():
+            indizi_ottenuti.append({
+                'testo': indizio_data[0],
+                'numero': indizio_data[1],
+                'punti': indizio_data[2]
+            })
+
+        # Conta totale indizi disponibili
+        cursor.execute("""
+            SELECT COUNT(*) FROM indovina_indizi WHERE persona_id = %s
+        """, (persona_id,))
+        totale_indizi = cursor.fetchone()[0]
+
+        return jsonify({
+            'has_active_game': True,
+            'can_start_new': False,
+            'partita_id': partita_id,
+            'persona_id': persona_id,
+            'persona_nome': nome,
+            'persona_descrizione': descrizione,
+            'indizi_richiesti': indizi_richiesti,
+            'indizi_ottenuti': indizi_ottenuti,
+            'totale_indizi': totale_indizi,
+            'tutti_indizi_usati': indizi_richiesti >= totale_indizi
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per ottenere le statistiche del giocatore
+@app.route('/api/indovina-chi/stats')
+def get_indovina_chi_stats():
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Statistiche generali
+        cursor.execute("""
+            SELECT 
+                COUNT(*) as partite_totali,
+                SUM(CASE WHEN risposta_corretta = TRUE THEN 1 ELSE 0 END) as partite_vinte,
+                SUM(punti_guadagnati) as punti_totali,
+                AVG(CASE WHEN completata = TRUE THEN indizi_richiesti END) as media_indizi,
+                AVG(CASE WHEN completata = TRUE THEN tempo_impiegato END) as tempo_medio
+            FROM indovina_partite 
+            WHERE giocatore_id = %s AND completata = TRUE
+        """, (session['player_id'],))
+
+        stats = cursor.fetchone()
+
+        if not stats or stats[0] == 0:
+            return jsonify({
+                'partite_totali': 0,
+                'partite_vinte': 0,
+                'punti_totali': 0,
+                'percentuale_vittoria': 0,
+                'media_indizi': 0,
+                'tempo_medio': 0,
+                'miglior_partita': None
+            })
+
+        partite_totali, partite_vinte, punti_totali, media_indizi, tempo_medio = stats
+        percentuale_vittoria = (partite_vinte / partite_totali * 100) if partite_totali > 0 else 0
+
+        # Miglior partita
+        cursor.execute("""
+            SELECT ip.punti_guadagnati, ip.indizi_richiesti, ip.tempo_impiegato, p.nome
+            FROM indovina_partite ip
+            JOIN indovina_persone p ON ip.persona_id = p.id
+            WHERE ip.giocatore_id = %s AND ip.risposta_corretta = TRUE
+            ORDER BY ip.punti_guadagnati DESC, ip.indizi_richiesti ASC
+            LIMIT 1
+        """, (session['player_id'],))
+
+        miglior_partita = cursor.fetchone()
+
+        return jsonify({
+            'partite_totali': partite_totali,
+            'partite_vinte': partite_vinte,
+            'punti_totali': punti_totali or 0,
+            'percentuale_vittoria': round(percentuale_vittoria, 1),
+            'media_indizi': round(media_indizi or 0, 1),
+            'tempo_medio': round(tempo_medio or 0, 1),
+            'miglior_partita': {
+                'punti': miglior_partita[0],
+                'indizi': miglior_partita[1],
+                'tempo': miglior_partita[2],
+                'persona': miglior_partita[3]
+            } if miglior_partita else None
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per rinunciare a una partita
+@app.route('/api/indovina-chi/give-up', methods=['POST'])
+def give_up_indovina_chi():
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    partita_id = data.get('partita_id')
+
+    if not partita_id:
+        return jsonify({'error': 'ID partita mancante'}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Verifica che la partita appartenga al giocatore e non sia completata
+        cursor.execute("""
+            SELECT ip.persona_id, p.nome
+            FROM indovina_partite ip
+            JOIN indovina_persone p ON ip.persona_id = p.id
+            WHERE ip.id = %s AND ip.giocatore_id = %s AND ip.completata = FALSE
+        """, (partita_id, session['player_id']))
+
+        partita_info = cursor.fetchone()
+        if not partita_info:
+            return jsonify({'error': 'Partita non trovata o già completata'}), 404
+
+        persona_id, nome_corretto = partita_info
+
+        # Segna la partita come completata senza punti
+        cursor.execute("""
+            UPDATE indovina_partite 
+            SET risposta_corretta = FALSE, punti_guadagnati = 0, completata = TRUE
+            WHERE id = %s
+        """, (partita_id,))
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'nome_corretto': nome_corretto,
+            'messaggio': f'Hai rinunciato. La risposta corretta era: {nome_corretto}'
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per ottenere la classifica Indovina Chi
+@app.route('/api/indovina-chi/leaderboard')
+def get_indovina_chi_leaderboard():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT 
+                g.nome, g.squadra, g.foto_profilo,
+                COUNT(ip.id) as partite_giocate,
+                SUM(CASE WHEN ip.risposta_corretta = TRUE THEN 1 ELSE 0 END) as partite_vinte,
+                SUM(ip.punti_guadagnati) as punti_totali,
+                AVG(CASE WHEN ip.completata = TRUE AND ip.risposta_corretta = TRUE THEN ip.indizi_richiesti END) as media_indizi_vincenti
+            FROM giocatori g
+            LEFT JOIN indovina_partite ip ON g.id = ip.giocatore_id AND ip.completata = TRUE
+            GROUP BY g.id, g.nome, g.squadra, g.foto_profilo
+            HAVING partite_giocate > 0
+            ORDER BY punti_totali DESC, partite_vinte DESC, media_indizi_vincenti ASC
+        """, )
+
+        leaderboard = []
+        for row in cursor.fetchall():
+            nome, squadra, foto, partite_giocate, partite_vinte, punti_totali, media_indizi = row
+
+            percentuale_vittoria = (partite_vinte / partite_giocate * 100) if partite_giocate > 0 else 0
+
+            leaderboard.append({
+                'nome': nome,
+                'squadra': squadra,
+                'foto_profilo': foto,
+                'partite_giocate': partite_giocate,
+                'partite_vinte': partite_vinte,
+                'punti_totali': punti_totali or 0,
+                'percentuale_vittoria': round(percentuale_vittoria, 1),
+                'media_indizi_vincenti': round(media_indizi or 0, 1)
+            })
+
+        return jsonify(leaderboard)
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
 
 
 # Votazione Costumi
