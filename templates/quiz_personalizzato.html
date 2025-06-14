@@ -33,6 +33,27 @@
             backdrop-filter: blur(10px);
         }
 
+        .loading-screen {
+            text-align: center;
+            padding: 50px;
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-top: 5px solid #ffd700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         .progress-bar {
             width: 100%;
             height: 10px;
@@ -62,6 +83,16 @@
             color: #ffd700;
             font-size: 1.2em;
             font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .question-category {
+            background: rgba(255, 107, 107, 0.3);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            display: inline-block;
             margin-bottom: 15px;
         }
 
@@ -168,6 +199,7 @@
         .results-screen {
             text-align: center;
             padding: 40px;
+            display: none;
         }
 
         .final-score {
@@ -224,6 +256,34 @@
             100% { transform: scale(1); }
         }
 
+        .error-message {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            color: #fff;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(39, 174, 96, 0.9);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-weight: bold;
+            z-index: 1000;
+            display: none;
+        }
+
+        .notification.error {
+            background: rgba(231, 76, 60, 0.9);
+        }
+
         @media (max-width: 768px) {
             .answers-grid {
                 grid-template-columns: 1fr;
@@ -253,45 +313,44 @@
             <p>Metti alla prova la tua conoscenza del festeggiato!</p>
         </div>
 
+        <!-- Loading Screen -->
+        <div class="loading-screen" id="loading-screen">
+            <div class="loading-spinner"></div>
+            <h3>Caricamento domande...</h3>
+        </div>
+
+        <!-- Error Screen -->
+        <div class="error-message" id="error-screen" style="display: none;">
+            <h3>⚠️ Errore</h3>
+            <p id="error-message-text">Si è verificato un errore durante il caricamento.</p>
+            <button class="btn" onclick="location.reload()">🔄 Riprova</button>
+        </div>
+
         <!-- Timer -->
-        <div class="timer" id="timer">⏱️ 30s</div>
+        <div class="timer" id="timer" style="display: none;">⏱️ 30s</div>
 
         <!-- Barra di progresso -->
-        <div class="progress-bar">
+        <div class="progress-bar" style="display: none;" id="progress-bar">
             <div class="progress-fill" id="progress-fill"></div>
         </div>
 
         <!-- Info punteggio -->
-        <div class="score-info">
-            <strong>Domanda <span id="current-question">1</span> di <span id="total-questions">10</span></strong>
+        <div class="score-info" style="display: none;" id="score-info">
+            <strong>Domanda <span id="current-question">1</span> di <span id="total-questions">?</span></strong>
             | Punteggio: <span id="current-score">0</span> punti
         </div>
 
         <!-- Schermata del quiz -->
-        <div id="quiz-screen">
+        <div id="quiz-screen" style="display: none;">
             <div class="question-card">
                 <div class="question-number">Domanda <span id="question-num">1</span></div>
+                <div class="question-category" id="question-category">Categoria</div>
                 <div class="question-text" id="question-text">
-                    Qual è il colore preferito del festeggiato?
+                    Caricamento domanda...
                 </div>
 
                 <div class="answers-grid" id="answers-grid">
-                    <div class="answer-option" onclick="selectAnswer('a', this)">
-                        <span class="answer-label">A)</span>
-                        <span>Blu</span>
-                    </div>
-                    <div class="answer-option" onclick="selectAnswer('b', this)">
-                        <span class="answer-label">B)</span>
-                        <span>Rosso</span>
-                    </div>
-                    <div class="answer-option" onclick="selectAnswer('c', this)">
-                        <span class="answer-label">C)</span>
-                        <span>Verde</span>
-                    </div>
-                    <div class="answer-option" onclick="selectAnswer('d', this)">
-                        <span class="answer-label">D)</span>
-                        <span>Nero</span>
-                    </div>
+                    <!-- Le opzioni di risposta verranno generate dinamicamente -->
                 </div>
             </div>
 
@@ -306,79 +365,47 @@
         </div>
 
         <!-- Schermata risultati -->
-        <div id="results-screen" style="display: none;">
-            <div class="results-screen">
-                <h2>🎉 Quiz Completato!</h2>
-                <div class="final-score" id="final-score">80</div>
-                <p>punti guadagnati</p>
+        <div id="results-screen" class="results-screen">
+            <h2>🎉 Quiz Completato!</h2>
+            <div class="final-score" id="final-score">0</div>
+            <p>punti guadagnati</p>
 
-                <div class="score-breakdown">
-                    <h3>📊 Dettaglio Punteggio</h3>
-                    <div class="breakdown-item">
-                        <span>Risposte corrette:</span>
-                        <span id="correct-answers">8/10</span>
-                    </div>
-                    <div class="breakdown-item">
-                        <span>Tempo medio per risposta:</span>
-                        <span id="avg-time">12s</span>
-                    </div>
-                    <div class="breakdown-item">
-                        <span>Bonus velocità:</span>
-                        <span id="speed-bonus">+20 punti</span>
-                    </div>
-                    <div class="breakdown-item">
-                        <span><strong>Punteggio totale:</strong></span>
-                        <span><strong id="breakdown-total">80 punti</strong></span>
-                    </div>
+            <div class="score-breakdown">
+                <h3>📊 Dettaglio Punteggio</h3>
+                <div class="breakdown-item">
+                    <span>Risposte corrette:</span>
+                    <span id="correct-answers">0/0</span>
                 </div>
+                <div class="breakdown-item">
+                    <span>Percentuale:</span>
+                    <span id="percentage">0%</span>
+                </div>
+                <div class="breakdown-item">
+                    <span>Tempo totale:</span>
+                    <span id="total-time">0s</span>
+                </div>
+                <div class="breakdown-item">
+                    <span><strong>Punteggio finale:</strong></span>
+                    <span><strong id="breakdown-total">0 punti</strong></span>
+                </div>
+            </div>
 
-                <div class="controls">
-                    <button class="btn btn-secondary" onclick="goBack()">
-                        🏠 Torna alla Dashboard
-                    </button>
-                    <button class="btn" onclick="viewLeaderboard()">
-                        🏆 Vedi Classifica
-                    </button>
-                </div>
+            <div class="controls">
+                <button class="btn btn-secondary" onclick="goBack()">
+                    🏠 Torna alla Dashboard
+                </button>
+                <button class="btn" onclick="viewLeaderboard()">
+                    🏆 Vedi Classifica
+                </button>
             </div>
         </div>
     </div>
 
-    <script>
-        // Dati del quiz (in una vera app verrebbero dal server)
-        const quizData = [
-            {
-                id: 1,
-                question: "Qual è il colore preferito del festeggiato?",
-                options: ["Blu", "Rosso", "Verde", "Nero"],
-                correct: "a"
-            },
-            {
-                id: 2,
-                question: "In che anno è nato il festeggiato?",
-                options: ["1990", "1995", "1988", "1992"],
-                correct: "c"
-            },
-            {
-                id: 3,
-                question: "Qual è il suo film preferito?",
-                options: ["Inception", "Avatar", "Titanic", "Matrix"],
-                correct: "b"
-            },
-            {
-                id: 4,
-                question: "Quale sport pratica di più?",
-                options: ["Calcio", "Tennis", "Nuoto", "Palestra"],
-                correct: "d"
-            },
-            {
-                id: 5,
-                question: "Qual è la sua pizza preferita?",
-                options: ["Margherita", "Quattro stagioni", "Marinara", "Capricciosa"],
-                correct: "a"
-            }
-        ];
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
 
+    <script>
+        let quizData = [];
         let currentQuestionIndex = 0;
         let selectedAnswer = null;
         let score = 0;
@@ -387,11 +414,105 @@
         let timer;
         let startTime;
         let totalTime = 0;
+        let userAnswers = {};
+        let questionTimes = {};
 
-        function initQuiz() {
+        // Inizializzazione
+        document.addEventListener('DOMContentLoaded', function() {
+            checkQuizStatus();
+        });
+
+        // Controlla se il giocatore può fare il quiz
+        function checkQuizStatus() {
+            showLoading();
+
+            fetch('/api/quiz-status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showError('Errore di autenticazione. Reindirizzamento...');
+                        setTimeout(() => window.location.href = '/', 2000);
+                        return;
+                    }
+
+                    if (data.totale_domande === 0) {
+                        showError('Nessuna domanda disponibile. Il gamemaster deve aggiungere delle domande.');
+                        return;
+                    }
+
+                    if (data.ha_completato && !data.puo_rifare) {
+                        showCompletedMessage(data);
+                    } else {
+                        loadQuiz();
+                    }
+                })
+                .catch(error => {
+                    console.error('Errore controllo status:', error);
+                    showError('Errore di connessione. Riprova più tardi.');
+                });
+        }
+
+        function showCompletedMessage(data) {
+            hideLoading();
+            const container = document.querySelector('.container');
+            container.innerHTML = `
+                <div class="header">
+                    <h1>🧠 Quiz Già Completato</h1>
+                    <p>Hai già risposto a tutte le domande!</p>
+                </div>
+                <div class="question-card">
+                    <h3>📊 I tuoi risultati:</h3>
+                    <p><strong>Risposte corrette:</strong> ${data.risposte_corrette}/${data.totale_domande}</p>
+                    <p><strong>Percentuale:</strong> ${Math.round((data.risposte_corrette / data.totale_domande) * 100)}%</p>
+                    <p><strong>Ultimo tentativo:</strong> ${new Date(data.ultimo_tentativo).toLocaleString('it-IT')}</p>
+
+                    <div class="controls" style="margin-top: 30px;">
+                        <button class="btn btn-secondary" onclick="goBack()">🏠 Torna alla Dashboard</button>
+                        <button class="btn" onclick="location.reload()">🔄 Rifai il Quiz</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Carica le domande dal server
+        function loadQuiz() {
+            fetch('/api/quiz-questions')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showError('Errore caricamento domande: ' + data.error);
+                        return;
+                    }
+
+                    if (data.length === 0) {
+                        showError('Nessuna domanda disponibile. Contatta il gamemaster.');
+                        return;
+                    }
+
+                    quizData = data;
+                    hideLoading();
+                    startQuiz();
+                })
+                .catch(error => {
+                    console.error('Errore caricamento quiz:', error);
+                    showError('Errore di connessione durante il caricamento delle domande.');
+                });
+        }
+
+        function startQuiz() {
             document.getElementById('total-questions').textContent = quizData.length;
+            document.getElementById('quiz-screen').style.display = 'block';
+            document.getElementById('progress-bar').style.display = 'block';
+            document.getElementById('score-info').style.display = 'block';
+            document.getElementById('timer').style.display = 'block';
+
+            currentQuestionIndex = 0;
+            score = 0;
+            correctAnswers = 0;
+            userAnswers = {};
+            questionTimes = {};
+
             loadQuestion();
-            startTimer();
         }
 
         function loadQuestion() {
@@ -403,21 +524,24 @@
             const question = quizData[currentQuestionIndex];
             startTime = Date.now();
 
+            // Aggiorna UI
             document.getElementById('current-question').textContent = currentQuestionIndex + 1;
             document.getElementById('question-num').textContent = currentQuestionIndex + 1;
-            document.getElementById('question-text').textContent = question.question;
+            document.getElementById('question-category').textContent = question.categoria || 'Generale';
+            document.getElementById('question-text').textContent = question.domanda;
 
+            // Genera opzioni di risposta
             const answersGrid = document.getElementById('answers-grid');
             answersGrid.innerHTML = '';
 
-            question.options.forEach((option, index) => {
+            question.opzioni.forEach((opzione, index) => {
                 const letter = String.fromCharCode(97 + index); // a, b, c, d
                 const answerDiv = document.createElement('div');
                 answerDiv.className = 'answer-option';
                 answerDiv.onclick = () => selectAnswer(letter, answerDiv);
                 answerDiv.innerHTML = `
                     <span class="answer-label">${letter.toUpperCase()})</span>
-                    <span>${option}</span>
+                    <span>${opzione}</span>
                 `;
                 answersGrid.appendChild(answerDiv);
             });
@@ -445,38 +569,21 @@
         function nextQuestion() {
             if (!selectedAnswer) return;
 
-            const question = quizData[currentQuestionIndex];
             const responseTime = (Date.now() - startTime) / 1000;
             totalTime += responseTime;
 
-            // Mostra risposta corretta
-            document.querySelectorAll('.answer-option').forEach((opt, index) => {
-                const letter = String.fromCharCode(97 + index);
-                if (letter === question.correct) {
-                    opt.classList.add('correct');
-                } else if (letter === selectedAnswer && letter !== question.correct) {
-                    opt.classList.add('incorrect');
-                }
-            });
+            // Salva risposta e tempo
+            const currentQuestion = quizData[currentQuestionIndex];
+            userAnswers[currentQuestion.id] = selectedAnswer;
+            questionTimes[`tempo_${currentQuestion.id}`] = responseTime;
 
-            // Calcola punteggio
-            if (selectedAnswer === question.correct) {
-                correctAnswers++;
-                let points = 10;
-                // Bonus per velocità (risposta entro 15 secondi)
-                if (responseTime <= 15) {
-                    points += 5;
-                }
-                score += points;
-            }
+            // Mostra feedback visivo (opzionale)
+            // In questo caso non mostriamo la risposta corretta per non influenzare le domande successive
 
-            document.getElementById('current-score').textContent = score;
-
-            // Pausa per mostrare la risposta corretta
             setTimeout(() => {
                 currentQuestionIndex++;
                 loadQuestion();
-            }, 2000);
+            }, 500);
         }
 
         function updateProgress() {
@@ -492,6 +599,10 @@
                 if (timeLeft <= 0) {
                     // Tempo scaduto, vai alla prossima domanda
                     if (currentQuestionIndex < quizData.length) {
+                        if (!selectedAnswer) {
+                            // Seleziona automaticamente la prima opzione se nessuna è selezionata
+                            selectedAnswer = 'a';
+                        }
                         nextQuestion();
                     }
                 }
@@ -519,45 +630,83 @@
 
         function endQuiz() {
             clearInterval(timer);
+            document.getElementById('timer').style.display = 'none';
 
-            // Calcola statistiche finali
-            const avgTime = Math.round(totalTime / quizData.length);
-            const speedBonus = correctAnswers * 2; // Bonus per aver completato
-            const finalScore = score + speedBonus;
-
-            // Mostra schermata risultati
-            document.getElementById('quiz-screen').style.display = 'none';
-            document.getElementById('results-screen').style.display = 'block';
-
-            document.getElementById('final-score').textContent = finalScore;
-            document.getElementById('correct-answers').textContent = `${correctAnswers}/${quizData.length}`;
-            document.getElementById('avg-time').textContent = `${avgTime}s`;
-            document.getElementById('speed-bonus').textContent = `+${speedBonus} punti`;
-            document.getElementById('breakdown-total').textContent = `${finalScore} punti`;
-
-            // Invia risultato al server
-            submitQuizResults(finalScore);
+            // Invia risultati al server
+            submitQuizResults();
         }
 
-        function submitQuizResults(finalScore) {
-            fetch('/submit-quiz', {
+        function submitQuizResults() {
+            showNotification('Invio risultati...', 'info');
+
+            const results = {
+                risposte: userAnswers,
+                tempo_totale: Math.round(totalTime),
+                ...questionTimes
+            };
+
+            fetch('/api/submit-quiz', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    risposte: {}, // Qui dovrebbero esserci tutte le risposte
-                    punteggio: finalScore,
-                    tempo_totale: totalTime
-                })
+                body: JSON.stringify(results)
             })
             .then(response => response.json())
             .then(data => {
-                console.log('Risultati inviati:', data);
+                if (data.success) {
+                    showResults(data);
+                } else {
+                    showError('Errore invio risultati: ' + (data.error || 'Errore sconosciuto'));
+                }
             })
             .catch(error => {
                 console.error('Errore invio risultati:', error);
+                showError('Errore di connessione durante l\'invio dei risultati.');
             });
+        }
+
+        function showResults(data) {
+            // Nascondi schermata quiz
+            document.getElementById('quiz-screen').style.display = 'none';
+            document.getElementById('progress-bar').style.display = 'none';
+            document.getElementById('score-info').style.display = 'none';
+
+            // Mostra risultati
+            document.getElementById('results-screen').style.display = 'block';
+            document.getElementById('final-score').textContent = data.punteggio_totale;
+            document.getElementById('correct-answers').textContent = `${data.risposte_corrette}/${data.totale_domande}`;
+            document.getElementById('percentage').textContent = `${Math.round((data.risposte_corrette / data.totale_domande) * 100)}%`;
+            document.getElementById('total-time').textContent = `${data.tempo_totale}s`;
+            document.getElementById('breakdown-total').textContent = `${data.punteggio_totale} punti`;
+
+            showNotification('Quiz completato con successo!', 'success');
+        }
+
+        // Utility functions
+        function showLoading() {
+            document.getElementById('loading-screen').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-screen').style.display = 'none';
+        }
+
+        function showError(message) {
+            hideLoading();
+            document.getElementById('error-message-text').textContent = message;
+            document.getElementById('error-screen').style.display = 'block';
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
         }
 
         function goBack() {
@@ -565,17 +714,12 @@
         }
 
         function viewLeaderboard() {
-            window.location.href = '/classifica';
+            window.location.href = '/dashboard#leaderboard';
         }
-
-        // Inizializza il quiz quando la pagina si carica
-        window.onload = function() {
-            initQuiz();
-        };
 
         // Impedisci di tornare indietro durante il quiz
         window.addEventListener('beforeunload', function(e) {
-            if (currentQuestionIndex < quizData.length && currentQuestionIndex > 0) {
+            if (currentQuestionIndex > 0 && currentQuestionIndex < quizData.length) {
                 e.preventDefault();
                 e.returnValue = '';
             }

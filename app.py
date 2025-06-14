@@ -890,6 +890,226 @@ def quiz_personalizzato():
     return render_template('quiz_personalizzato.html')
 
 
+# Aggiungi queste route al tuo app.py (inserisci prima della riga "if __name__ == '__main__':")
+
+# API per reset quiz (solo gamemaster)
+@app.route('/api/gamemaster/reset-quiz-responses', methods=['POST'])
+def reset_quiz_responses():
+    if not session.get('is_gamemaster'):
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("DELETE FROM quiz_risposte")
+        conn.commit()
+        return jsonify({'success': True, 'message': 'Tutte le risposte quiz sono state resettate'})
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per ottenere domande quiz (per i giocatori)
+@app.route('/api/quiz-questions')
+def get_quiz_questions_for_players():
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Prendi tutte le domande in ordine casuale
+        cursor.execute("""
+            SELECT id, domanda, opzione_a, opzione_b, opzione_c, opzione_d, categoria
+            FROM quiz_domande 
+            ORDER BY RAND()
+        """)
+        questions = cursor.fetchall()
+
+        questions_list = []
+        for q in questions:
+            questions_list.append({
+                'id': q[0],
+                'domanda': q[1],
+                'opzioni': [q[2], q[3], q[4], q[5]],  # Array delle opzioni
+                'categoria': q[6]
+            })
+
+        return jsonify(questions_list)
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per inviare risposte quiz
+# Sostituisci la funzione submit_quiz in app.py con questa versione corretta:
+
+@app.route('/api/submit-quiz', methods=['POST'])
+def submit_quiz():
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    risposte = data.get('risposte', {})  # Dict: {domanda_id: risposta_data}
+    tempo_totale = data.get('tempo_totale', 0)
+
+    if not risposte:
+        return jsonify({'error': 'Nessuna risposta fornita'}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        punteggio_totale = 0
+        risposte_corrette = 0
+        dettagli_risposte = []
+
+        # Processa ogni risposta
+        for domanda_id, risposta_data in risposte.items():
+            # Skip se è un campo tempo
+            if str(domanda_id).startswith('tempo_'):
+                continue
+
+            # Ottieni la risposta corretta
+            cursor.execute("""
+                SELECT risposta_corretta, categoria, domanda
+                FROM quiz_domande 
+                WHERE id = %s
+            """, (domanda_id,))
+
+            question = cursor.fetchone()
+            if not question:
+                continue
+
+            risposta_corretta_db, categoria, domanda_text = question
+            is_correct = risposta_data.lower() == risposta_corretta_db.lower()
+
+            # Ottieni il tempo di risposta per questa domanda
+            tempo_key = f'tempo_{domanda_id}'
+            tempo_risposta = data.get(tempo_key, 30)  # Default 30 secondi se non specificato
+
+            if is_correct:
+                risposte_corrette += 1
+                punti_domanda = 10  # Punti base per risposta corretta
+
+                # Bonus per velocità
+                if tempo_risposta <= 10:
+                    punti_domanda += 5  # Bonus velocità
+                elif tempo_risposta <= 20:
+                    punti_domanda += 2
+
+                punteggio_totale += punti_domanda
+            else:
+                punti_domanda = 0
+
+            # Salva la risposta nel database
+            cursor.execute("""
+                INSERT INTO quiz_risposte (giocatore_id, domanda_id, risposta_data, corretta, tempo_risposta)
+                VALUES (%s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE 
+                risposta_data = %s, corretta = %s, tempo_risposta = %s
+            """, (
+                session['player_id'], domanda_id, risposta_data, is_correct, tempo_risposta,
+                risposta_data, is_correct, tempo_risposta
+            ))
+
+            dettagli_risposte.append({
+                'domanda': domanda_text,
+                'categoria': categoria,
+                'risposta_data': risposta_data,
+                'risposta_corretta': risposta_corretta_db,
+                'corretta': is_correct,
+                'punti': punti_domanda,
+                'tempo': tempo_risposta
+            })
+
+        # Aggiorna punteggio totale giocatore
+        cursor.execute("""
+            UPDATE giocatori 
+            SET punti_totali = punti_totali + %s 
+            WHERE id = %s
+        """, (punteggio_totale, session['player_id']))
+
+        # Registra partecipazione
+        cursor.execute("""
+            INSERT INTO partecipazioni (giocatore_id, gioco, punti)
+            VALUES (%s, 'quiz_personalizzato', %s)
+        """, (session['player_id'], punteggio_totale))
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'punteggio_totale': punteggio_totale,
+            'risposte_corrette': risposte_corrette,
+            'totale_domande': len(dettagli_risposte),
+            'tempo_totale': tempo_totale,
+            'dettagli': dettagli_risposte
+        })
+
+    except mysql.connector.Error as err:
+        conn.rollback()
+        return jsonify({'error': str(err)}), 500
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': f'Errore generico: {str(e)}'}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API per verificare se il giocatore ha già fatto il quiz
+@app.route('/api/quiz-status')
+def quiz_status():
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Controlla se ha già fatto il quiz
+        cursor.execute("""
+            SELECT COUNT(*) as risposte_date, 
+                   SUM(CASE WHEN corretta = TRUE THEN 1 ELSE 0 END) as corrette,
+                   MAX(timestamp) as ultimo_tentativo
+            FROM quiz_risposte 
+            WHERE giocatore_id = %s
+        """, (session['player_id'],))
+
+        result = cursor.fetchone()
+        risposte_date = result[0] if result else 0
+        risposte_corrette = result[1] if result else 0
+        ultimo_tentativo = result[2] if result else None
+
+        # Conta domande totali disponibili
+        cursor.execute("SELECT COUNT(*) FROM quiz_domande")
+        totale_domande = cursor.fetchone()[0]
+
+        return jsonify({
+            'ha_completato': risposte_date >= totale_domande,
+            'risposte_date': risposte_date,
+            'risposte_corrette': risposte_corrette,
+            'totale_domande': totale_domande,
+            'ultimo_tentativo': ultimo_tentativo.isoformat() if ultimo_tentativo else None,
+            'puo_rifare': True  # Permettiamo sempre di rifare il quiz
+        })
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
 # Indovina Chi
 @app.route('/indovina-chi')
 def indovina_chi():
