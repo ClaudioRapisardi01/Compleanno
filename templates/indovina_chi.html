@@ -209,25 +209,47 @@
             color: #ffd700;
         }
 
-        .input-group input {
+        .input-group select {
             width: 100%;
             padding: 15px;
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 15px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
             font-size: 1.1em;
             transition: all 0.3s ease;
+            cursor: pointer;
         }
 
-        .input-group input:focus {
+        .input-group select:focus {
             outline: none;
             border-color: #ffd700;
             box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
         }
 
-        .input-group input::placeholder {
-            color: rgba(255, 255, 255, 0.6);
+        .input-group select option {
+            padding: 10px;
+            background: white;
+            color: #333;
+        }
+
+        .input-group select option:disabled {
+            color: #999;
+            font-style: italic;
+        }
+
+        .select-arrow {
+            position: relative;
+        }
+
+        .select-arrow::after {
+            content: '🔍';
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            font-size: 1.2em;
         }
 
         .btn {
@@ -399,6 +421,17 @@
             background: rgba(52, 152, 219, 0.9);
         }
 
+        /* Animazione per la selezione */
+        .select-highlight {
+            animation: selectPulse 0.5s ease-out;
+        }
+
+        @keyframes selectPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+            100% { transform: scale(1); }
+        }
+
         @media (max-width: 768px) {
             .game-content {
                 grid-template-columns: 1fr;
@@ -559,11 +592,16 @@
                     <h3>🎯 La Tua Risposta</h3>
                     <div class="answer-form">
                         <div class="input-group">
-                            <label for="answer-input">Chi è questa persona?</label>
-                            <input type="text" id="answer-input" placeholder="Inserisci il nome..." autocomplete="off">
+                            <label for="answer-select">Chi è questa persona?</label>
+                            <div class="select-arrow">
+                                <select id="answer-select">
+                                    <option value="" disabled selected>Seleziona una persona...</option>
+                                    <!-- Le opzioni verranno caricate dinamicamente -->
+                                </select>
+                            </div>
                         </div>
                         <div class="controls">
-                            <button class="btn" onclick="submitAnswer()">✅ Conferma Risposta</button>
+                            <button class="btn" onclick="submitAnswer()" id="submit-answer-btn" disabled>✅ Conferma Risposta</button>
                         </div>
                     </div>
 
@@ -607,6 +645,8 @@
             game_timer: null
         };
 
+        let availableNames = []; // Array per memorizzare i nomi disponibili
+
         // Inizializzazione
         document.addEventListener('DOMContentLoaded', function() {
             checkGameStatus();
@@ -640,6 +680,60 @@
                     console.error('Errore controllo stato:', error);
                     showError('Errore di connessione. Riprova più tardi.');
                 });
+        }
+
+        // Carica i nomi disponibili per il dropdown
+        function loadAvailableNames() {
+            return fetch('/api/indovina-chi/available-names')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error('Errore caricamento nomi:', data.error);
+                        return [];
+                    }
+                    availableNames = data;
+                    populateNameDropdown();
+                    return data;
+                })
+                .catch(error => {
+                    console.error('Errore caricamento nomi:', error);
+                    return [];
+                });
+        }
+
+        // Popola il dropdown con i nomi disponibili
+        function populateNameDropdown() {
+            const select = document.getElementById('answer-select');
+            if (!select) return;
+
+            // Pulisci le opzioni esistenti tranne la prima
+            while (select.children.length > 1) {
+                select.removeChild(select.lastChild);
+            }
+
+            // Aggiungi tutte le persone disponibili
+            availableNames.forEach(person => {
+                const option = document.createElement('option');
+                option.value = person.id;
+                option.textContent = person.nome;
+                select.appendChild(option);
+            });
+
+            // Aggiungi event listener per abilitare/disabilitare il bottone submit
+            select.addEventListener('change', function() {
+                const submitBtn = document.getElementById('submit-answer-btn');
+                if (submitBtn) {
+                    submitBtn.disabled = !this.value;
+
+                    // Aggiungi animazione di selezione
+                    if (this.value) {
+                        this.classList.add('select-highlight');
+                        setTimeout(() => {
+                            this.classList.remove('select-highlight');
+                        }, 500);
+                    }
+                }
+            });
         }
 
         // Carica schermata gioco completato
@@ -835,28 +929,28 @@
             gameData.indizi_ottenuti = data.indizi_ottenuti;
             gameData.start_time = Date.now();
 
-            // Aggiorna UI
-            updateGameInfo();
-            displayClues();
+            // Carica i nomi disponibili per il dropdown
+            loadAvailableNames().then(() => {
+                // Aggiorna UI
+                updateGameInfo();
+                displayClues();
 
-            // Mostra schermata gioco
-            document.getElementById('game-screen').style.display = 'block';
-            document.getElementById('timer').style.display = 'block';
+                // Mostra schermata gioco
+                document.getElementById('game-screen').style.display = 'block';
+                document.getElementById('timer').style.display = 'block';
 
-            // Avvia timer
-            startGameTimer();
+                // Avvia timer
+                startGameTimer();
 
-            // Focus su input risposta
-            document.getElementById('answer-input').focus();
-
-            // Gestione tasto Enter
-            document.getElementById('answer-input').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    submitAnswer();
+                // Reset e focus sul select
+                const select = document.getElementById('answer-select');
+                if (select) {
+                    select.selectedIndex = 0;
+                    select.focus();
                 }
-            });
 
-            showNotification(`Stai indovinando: "${data.persona_descrizione || 'Una persona misteriosa'}"`, 'info');
+                showNotification(`Stai indovinando: "${data.persona_descrizione || 'Una persona misteriosa'}"`, 'info');
+            });
         }
 
         // Inizia nuova partita
@@ -888,39 +982,39 @@
                     gameData.indizi_ottenuti = [];
                     gameData.start_time = Date.now();
 
-                    hideLoading();
+                    // Carica i nomi disponibili
+                    loadAvailableNames().then(() => {
+                        hideLoading();
 
-                    // Nascondi schermata iniziale e risultati
-                    document.getElementById('start-screen').style.display = 'none';
-                    document.getElementById('results-screen').style.display = 'none';
+                        // Nascondi schermata iniziale e risultati
+                        document.getElementById('start-screen').style.display = 'none';
+                        document.getElementById('results-screen').style.display = 'none';
 
-                    // Mostra schermata gioco
-                    document.getElementById('game-screen').style.display = 'block';
-                    document.getElementById('timer').style.display = 'block';
+                        // Mostra schermata gioco
+                        document.getElementById('game-screen').style.display = 'block';
+                        document.getElementById('timer').style.display = 'block';
 
-                    // Reset UI
-                    updateGameInfo();
-                    clearClues();
-                    document.getElementById('answer-input').value = '';
-                    document.getElementById('answer-input').focus();
-
-                    // Avvia timer
-                    startGameTimer();
-
-                    let notificationMsg = `Nuova partita iniziata! Persona: "${data.persona_descrizione || 'Una persona misteriosa'}"`;
-
-                    // Aggiungi info progresso se disponibile
-                    if (data.progresso) {
-                        notificationMsg += ` (${data.progresso.rimanenti} persone rimanenti)`;
-                    }
-
-                    showNotification(notificationMsg, 'success');
-
-                    // Gestione tasto Enter
-                    document.getElementById('answer-input').addEventListener('keypress', function(e) {
-                        if (e.key === 'Enter') {
-                            submitAnswer();
+                        // Reset UI
+                        updateGameInfo();
+                        clearClues();
+                        const select = document.getElementById('answer-select');
+                        if (select) {
+                            select.selectedIndex = 0;
+                            select.focus();
                         }
+                        document.getElementById('submit-answer-btn').disabled = true;
+
+                        // Avvia timer
+                        startGameTimer();
+
+                        let notificationMsg = `Nuova partita iniziata! Persona: "${data.persona_descrizione || 'Una persona misteriosa'}"`;
+
+                        // Aggiungi info progresso se disponibile
+                        if (data.progresso) {
+                            notificationMsg += ` (${data.progresso.rimanenti} persone rimanenti)`;
+                        }
+
+                        showNotification(notificationMsg, 'success');
                     });
                 } else {
                     hideLoading();
@@ -999,12 +1093,12 @@
 
         // Invia risposta
         function submitAnswer() {
-            const answerInput = document.getElementById('answer-input');
-            const answer = answerInput.value.trim();
+            const answerSelect = document.getElementById('answer-select');
+            const selectedId = answerSelect.value;
 
-            if (!answer) {
-                showNotification('Inserisci una risposta!', 'warning');
-                answerInput.focus();
+            if (!selectedId) {
+                showNotification('Seleziona una persona!', 'warning');
+                answerSelect.focus();
                 return;
             }
 
@@ -1024,7 +1118,7 @@
                 },
                 body: JSON.stringify({
                     partita_id: gameData.partita_id,
-                    risposta: answer,
+                    risposta_id: selectedId,
                     tempo_impiegato: tempoImpiegato
                 })
             })
@@ -1075,6 +1169,7 @@
                     showResults({
                         corretta: false,
                         nome_corretto: data.nome_corretto,
+                        risposta_data: 'Rinuncia',
                         punti_guadagnati: 0,
                         indizi_usati: gameData.indizi_richiesti,
                         tempo_impiegato: Math.floor((Date.now() - gameData.start_time) / 1000),
@@ -1112,7 +1207,12 @@
                 resultIcon.textContent = '😔';
                 resultTitle.textContent = 'Sbagliato';
                 resultTitle.style.color = '#e74c3c';
-                resultMessage.innerHTML = `La risposta corretta era <strong>${data.nome_corretto}</strong>.`;
+
+                if (data.risposta_data === 'Rinuncia') {
+                    resultMessage.innerHTML = `Hai rinunciato. La risposta corretta era <strong>${data.nome_corretto}</strong>.`;
+                } else {
+                    resultMessage.innerHTML = `Hai risposto <strong>"${data.risposta_data}"</strong> ma la risposta corretta era <strong>${data.nome_corretto}</strong>.`;
+                }
             }
 
             if (data.messaggio) {

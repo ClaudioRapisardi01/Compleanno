@@ -1311,7 +1311,42 @@ def get_indovina_chi_clue():
         conn.close()
 
 
-# API per inviare una risposta
+# Aggiungi questa nuova API route al tuo app.py
+
+# API per ottenere tutti i nomi delle persone disponibili per la dropdown
+@app.route('/api/indovina-chi/available-names')
+def get_indovina_chi_names():
+    if 'player_id' not in session:
+        return jsonify({'error': 'Non autorizzato'}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Ottieni tutti i nomi delle persone attive
+        cursor.execute("""
+            SELECT id, nome FROM indovina_persone 
+            WHERE attivo = TRUE 
+            ORDER BY nome ASC
+        """)
+
+        names = []
+        for row in cursor.fetchall():
+            names.append({
+                'id': row[0],
+                'nome': row[1]
+            })
+
+        return jsonify(names)
+
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# Modifica la funzione submit_indovina_chi_answer per accettare l'ID invece del nome
 @app.route('/api/indovina-chi/submit-answer', methods=['POST'])
 def submit_indovina_chi_answer():
     if 'player_id' not in session:
@@ -1319,10 +1354,10 @@ def submit_indovina_chi_answer():
 
     data = request.get_json()
     partita_id = data.get('partita_id')
-    risposta = data.get('risposta', '').strip()
+    risposta_id = data.get('risposta_id')  # Ora riceviamo l'ID invece del nome
     tempo_impiegato = data.get('tempo_impiegato', 0)
 
-    if not all([partita_id, risposta]):
+    if not all([partita_id, risposta_id]):
         return jsonify({'error': 'Dati mancanti'}), 400
 
     conn = get_db_connection()
@@ -1346,25 +1381,29 @@ def submit_indovina_chi_answer():
         if completata:
             return jsonify({'error': 'Partita già completata'}), 400
 
-        # Verifica se la risposta è corretta (case-insensitive)
-        risposta_corretta = risposta.lower().strip() == nome_corretto.lower().strip()
+        # Verifica se la risposta è corretta confrontando gli ID
+        risposta_corretta = int(risposta_id) == persona_id
 
-        # Calcola punteggio
+        # Ottieni il nome della risposta data per il feedback
+        cursor.execute("SELECT nome FROM indovina_persone WHERE id = %s", (risposta_id,))
+        risposta_nome_result = cursor.fetchone()
+        risposta_nome = risposta_nome_result[0] if risposta_nome_result else 'Sconosciuto'
+
+        # Calcola punteggio (stesso sistema di prima)
         punti_guadagnati = 0
         if risposta_corretta:
-            # Punteggio basato sugli indizi usati
             if indizi_richiesti == 1:
-                punti_guadagnati = 100  # Indovinato al primo indizio
+                punti_guadagnati = 100
             elif indizi_richiesti == 2:
-                punti_guadagnati = 80  # Secondo indizio
+                punti_guadagnati = 80
             elif indizi_richiesti == 3:
-                punti_guadagnati = 60  # Terzo indizio
+                punti_guadagnati = 60
             elif indizi_richiesti == 4:
-                punti_guadagnati = 40  # Quarto indizio
+                punti_guadagnati = 40
             else:
-                punti_guadagnati = 20  # Più di 4 indizi
+                punti_guadagnati = 20
 
-            # Bonus per velocità (se completato in meno di 2 minuti)
+            # Bonus per velocità
             if tempo_impiegato > 0 and tempo_impiegato < 120:
                 punti_guadagnati += 10
 
@@ -1396,10 +1435,11 @@ def submit_indovina_chi_answer():
             'success': True,
             'corretta': risposta_corretta,
             'nome_corretto': nome_corretto,
+            'risposta_data': risposta_nome,
             'punti_guadagnati': punti_guadagnati,
             'indizi_usati': indizi_richiesti,
             'tempo_impiegato': tempo_impiegato,
-            'messaggio': 'Corretto! Ottimo lavoro!' if risposta_corretta else f'Sbagliato! La risposta corretta era: {nome_corretto}'
+            'messaggio': f'Corretto! Ottimo lavoro!' if risposta_corretta else f'Sbagliato! Hai risposto "{risposta_nome}" ma la risposta corretta era: {nome_corretto}'
         })
 
     except mysql.connector.Error as err:
@@ -2174,6 +2214,8 @@ def get_my_votes():
     finally:
         cursor.close()
         conn.close()
+
+
 
 
 if __name__ == '__main__':
